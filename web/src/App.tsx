@@ -190,6 +190,7 @@ function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [selectedSection, setSelectedSection] = useState<Section>('catalog');
   const [loadingData, setLoadingData] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [portalData, setPortalData] = useState<PortalData>(emptyData);
   const [search, setSearch] = useState('');
@@ -269,7 +270,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [session, refreshTick]);
 
   useEffect(() => {
     if (!session || !selectedMaterialId) {
@@ -361,6 +362,10 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleRefreshProfile = () => {
+    setRefreshTick((current) => current + 1);
   };
 
   const handleReserve = async (materialId: string) => {
@@ -501,6 +506,8 @@ function App() {
   }
 
   const profile = portalData.profile;
+  const activeEmail = session?.user.email || profile?.email || 'N/A';
+  const activeUserId = session?.user.id || profile?.id || 'N/A';
   const isAdmin = profile?.roles.some((role) => role.key === 'ADMIN') ?? false;
   const isStaff =
     isAdmin ||
@@ -558,6 +565,9 @@ function App() {
             <button type="button" onClick={() => setSelectedSection('catalog')}>Ir al catálogo</button>
             <button type="button" className="secondary" onClick={() => setSelectedSection('circulation')}>
               Ver circulación
+            </button>
+            <button type="button" className="secondary" onClick={handleRefreshProfile}>
+              Recargar perfil
             </button>
           </div>
         </header>
@@ -824,6 +834,28 @@ function App() {
                   <div><dt>Tipo</dt><dd>{memberLabel[profile.member_type]}</dd></div>
                   <div><dt>Digital</dt><dd>{profile.can_access_digital ? 'Permitido' : 'Bloqueado'}</dd></div>
                 </dl>
+              ) : null}
+            </div>
+
+            <div className="panel panel--wide">
+              <div className="panel__header">
+                <div>
+                  <span className="panel__eyebrow">Sesión activa</span>
+                  <h2>Usuario autenticado</h2>
+                </div>
+              </div>
+
+              <dl className="profile-list">
+                <div><dt>Email de sesión</dt><dd>{activeEmail}</dd></div>
+                <div><dt>ID de sesión</dt><dd>{activeUserId}</dd></div>
+                <div><dt>Email de perfil</dt><dd>{profile?.email || 'N/A'}</dd></div>
+                <div><dt>Roles detectados</dt><dd>{profile?.roles.length ? profile.roles.map((role) => roleLabel[role.key]).join(', ') : 'Sin rol cargado'}</dd></div>
+                <div><dt>Permisos detectados</dt><dd>{profile?.permissions.length ?? 0}</dd></div>
+                <div><dt>Estado</dt><dd>{isAdmin ? 'ADMIN' : 'Usuario normal'}</dd></div>
+              </dl>
+
+              {profile && activeEmail !== profile.email ? (
+                <div className="page-banner">La sesión activa y el perfil cargado no coinciden. Recarga o vuelve a iniciar sesión.</div>
               ) : null}
             </div>
 

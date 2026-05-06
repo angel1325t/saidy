@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase.js';
 import { apiFetch } from './lib/api.js';
+import { AdminRbacPanel } from './components/AdminRbacPanel.js';
 
 type Section = 'catalog' | 'circulation' | 'digital' | 'admin';
 
@@ -836,6 +837,8 @@ function App() {
                 </dl>
               ) : null}
             </div>
+
+            <AdminRbacPanel token={session.access_token} permissions={profile?.permissions.map((permission) => permission.key) ?? []} />
           </section>
         ) : null}
       </main>

@@ -29,6 +29,10 @@ type UserDirectoryEntry = {
   permissions: PermissionRecord[];
 };
 
+type RoleDirectoryEntry = RoleRecord & {
+  permissions: PermissionRecord[];
+};
+
 const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -175,6 +179,42 @@ async function loadUserDirectory(): Promise<UserDirectoryEntry[]> {
       permissions: [...permissions.values()]
     };
   });
+}
+
+async function loadRoleDirectory(): Promise<RoleDirectoryEntry[]> {
+  const { data: roles, error } = await supabaseAdmin.from('roles').select('*').order('name', { ascending: true });
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const roleIds = (roles ?? []).map((role) => role.id);
+  if (roleIds.length === 0) {
+    return [];
+  }
+
+  const { data: permissionLinks, error: permissionError } = await supabaseAdmin
+    .from('role_permissions')
+    .select('role_id, permission:permissions(id,key,name,description)')
+    .in('role_id', roleIds);
+
+  if (permissionError) {
+    throw new Error(permissionError.message);
+  }
+
+  const permissionsByRole = new Map<string, PermissionRecord[]>();
+  for (const link of (permissionLinks ?? []) as unknown as Array<{ role_id: string; permission: PermissionRecord | null }>) {
+    if (!link.permission) continue;
+    const current = permissionsByRole.get(link.role_id) ?? [];
+    if (!current.some((permission) => permission.key === link.permission?.key)) {
+      current.push(link.permission);
+    }
+    permissionsByRole.set(link.role_id, current);
+  }
+
+  return (roles ?? []).map((role) => ({
+    ...role,
+    permissions: permissionsByRole.get(role.id) ?? []
+  }));
 }
 
 async function resolveRoleIds(roleKeys: string[]) {
@@ -341,12 +381,11 @@ adminRouter.patch('/users/:id/roles', requireAuth, requireAnyPermission('users:a
 });
 
 adminRouter.get('/roles', requireAuth, requireAnyPermission('roles:manage'), async (_req, res) => {
-  const { data, error } = await supabaseAdmin.from('roles').select('*').order('name', { ascending: true });
-  if (error) {
-    return sendError(res, 500, 'Unable to load roles', error.message);
+  try {
+    return res.json({ items: await loadRoleDirectory() });
+  } catch (error) {
+    return sendError(res, 500, 'Unable to load roles', error instanceof Error ? error.message : 'Unknown error');
   }
-
-  return res.json({ items: data ?? [] });
 });
 
 adminRouter.post('/roles', requireAuth, requireAnyPermission('roles:manage'), async (req: AuthedRequest, res) => {
@@ -569,7 +608,7 @@ adminRouter.get('/interlibrary', requireAuth, requireAnyPermission('reports:view
 adminRouter.get('/audit', requireAuth, requireAnyPermission('audit:read'), async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('audit_logs')
-    .select('*')
+    .select('*, actor:profiles(id,full_name,email)')
     .order('created_at', { ascending: false })
     .limit(250);
 

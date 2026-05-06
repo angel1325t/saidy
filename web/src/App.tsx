@@ -199,7 +199,6 @@ function App() {
     email: '',
     password: '',
     fullName: '',
-    memberType: 'student' as Profile['member_type'],
     institution: ''
   });
 
@@ -346,7 +345,7 @@ function App() {
       options: {
         data: {
           full_name: authForm.fullName,
-          member_type: authForm.memberType,
+          member_type: 'student',
           institution: authForm.institution
         }
       }
@@ -482,21 +481,6 @@ function App() {
                   onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
                   required
                 />
-              </label>
-              <label>
-                Tipo de usuario
-                <select
-                  value={authForm.memberType}
-                  onChange={(event) =>
-                    setAuthForm((current) => ({ ...current, memberType: event.target.value as Profile['member_type'] }))
-                  }
-                >
-                  <option value="student">Estudiante</option>
-                  <option value="teacher">Docente</option>
-                  <option value="researcher">Investigador</option>
-                  <option value="public">Público</option>
-                  <option value="staff">Personal</option>
-                </select>
               </label>
               <label>
                 Institución

@@ -18,6 +18,7 @@
 
   const allUsers = [];
   const charts = [];
+  const roleOptions = ['reader', 'author', 'admin'];
 
   function setText(id, value) {
     const element = document.getElementById(id);
@@ -49,7 +50,7 @@
     });
 
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="muted">Sin usuarios para el filtro actual</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Sin usuarios para el filtro actual</td></tr>';
       return;
     }
 
@@ -61,6 +62,16 @@
             <td>${escapeHtml(item.name)}</td>
             <td>${escapeHtml(item.email)}</td>
             <td>${roleLabel(item.role)}</td>
+            <td>
+              <div class="table-actions">
+                <select class="select" data-action="role-select" data-user-id="${item.id}">
+                  ${roleOptions
+                    .map((role) => `<option value="${role}" ${role === item.role ? 'selected' : ''}>${roleLabel(role)}</option>`)
+                    .join('')}
+                </select>
+                <button class="btn btn-secondary" type="button" data-action="save-role" data-user-id="${item.id}">Guardar</button>
+              </div>
+            </td>
           </tr>
         `
       )
@@ -82,8 +93,8 @@
       return;
     }
 
-    const chartTextColor = '#cfe3ff';
-    const chartGridColor = 'rgba(126, 162, 209, 0.28)';
+    const chartTextColor = '#0f172a';
+    const chartGridColor = 'rgba(15, 23, 42, 0.12)';
 
     const roleStats = stats.users?.byRole || {};
     const roleValues = [
@@ -96,11 +107,11 @@
       new window.Chart(roleChartCanvas, {
         type: 'doughnut',
         data: {
-          labels: ['Admin', 'Author', 'Reader'],
+          labels: ['Admin', 'Autor', 'Estudiante'],
           datasets: [
             {
               data: roleValues,
-              backgroundColor: ['#0284c7', '#2563eb', '#14b8a6'],
+              backgroundColor: ['#60a5fa', '#a78bfa', '#6ee7b7'],
               borderWidth: 0
             }
           ]
@@ -133,7 +144,7 @@
             {
               label: 'Uso',
               data: topTagsValues,
-              backgroundColor: '#0ea5e9',
+              backgroundColor: '#93c5fd',
               borderRadius: 8
             }
           ]
@@ -183,7 +194,7 @@
                 Number(stats.posts?.totalLikes || 0),
                 Number(stats.comments?.totalComments || 0)
               ],
-              backgroundColor: ['#0369a1', '#e11d48', '#047857'],
+              backgroundColor: ['#60a5fa', '#fca5a5', '#86efac'],
               borderRadius: 10
             }
           ]
@@ -221,11 +232,8 @@
     );
   }
 
-  try {
-    const [users, stats] = await Promise.all([
-      api('/api/users'),
-      api('/api/admin/stats')
-    ]);
+  async function loadDashboard() {
+    const [users, stats] = await Promise.all([api('/api/users'), api('/api/admin/stats')]);
 
     allUsers.splice(0, allUsers.length, ...users);
 
@@ -238,11 +246,7 @@
     setText('stat-reader-count', stats.users?.byRole?.reader || 0);
     setText('stat-total-tags', stats.posts?.totalTags || 0);
 
-    topTagsList.innerHTML = listMarkup(
-      stats.posts?.topTags,
-      'No hay tags aun',
-      (item) => `<li><strong>#${escapeHtml(item.name)}</strong> · ${item.usageCount} uso(s)</li>`
-    );
+    topTagsList.innerHTML = listMarkup(stats.posts?.topTags, 'No hay tags aun', (item) => `<li><strong>#${escapeHtml(item.name)}</strong> · ${item.usageCount} uso(s)</li>`);
 
     topPostsList.innerHTML = listMarkup(
       stats.posts?.mostLikedPosts,
@@ -255,12 +259,48 @@
     }
 
     renderCharts(stats);
-    renderUsersTable();
+    renderUsersTable(usersSearch?.value || '');
+  }
+
+  try {
+    await loadDashboard();
   } catch (error) {
     message('page-message', error.message, 'error');
   }
 
-  usersSearch?.addEventListener('input', () => {
-    renderUsersTable(usersSearch.value);
+  usersSearch?.addEventListener('input', () => renderUsersTable(usersSearch.value));
+
+  tbody?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const button = target.closest('button[data-action="save-role"]');
+    if (!button) return;
+
+    const userId = button.getAttribute('data-user-id');
+    if (!userId) return;
+
+    const select = tbody.querySelector(`select[data-action="role-select"][data-user-id="${userId}"]`);
+    const role = select?.value;
+    if (!role) return;
+
+    const originalLabel = button.textContent;
+    button.textContent = 'Guardando...';
+    button.setAttribute('disabled', 'true');
+
+    try {
+      await api(`/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role })
+      });
+
+      await loadDashboard();
+      message('page-message', 'Rol actualizado.', 'success');
+    } catch (saveError) {
+      message('page-message', saveError.message, 'error');
+    } finally {
+      button.textContent = originalLabel || 'Guardar';
+      button.removeAttribute('disabled');
+    }
   });
 })();

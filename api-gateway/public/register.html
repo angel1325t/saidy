@@ -5,51 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Registro | Blog Microservicios</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/app.css" />
   </head>
-  <body class="min-h-screen bg-slate-100">
+  <body class="app-shell">
     <div id="nav-slot"></div>
 
-    <main class="mx-auto flex min-h-[calc(100vh-88px)] max-w-6xl items-center justify-center px-4 py-8">
-      <section class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 class="text-2xl font-bold text-slate-900">Crear cuenta</h1>
-        <p class="mt-2 text-sm text-slate-600">Selecciona tu rol y crea tu usuario.</p>
+    <main class="page-wrap">
+      <section class="hero">
+        <p class="hero-kicker">Registro</p>
+        <h1>Crear cuenta</h1>
+        <p>
+          La cuenta se crea como <strong>Estudiante</strong>. Si es la primera cuenta del sistema, se creará como <strong>Administrador</strong>
+          para inicializar el panel.
+        </p>
+      </section>
 
-        <form id="register-form" class="mt-6 space-y-4">
+      <section class="panel">
+        <form id="register-form" class="form-grid">
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Nombre</label>
-            <input name="name" type="text" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
+            <label class="field-label" for="register-name">Nombre</label>
+            <input id="register-name" name="name" type="text" required class="input" placeholder="Tu nombre" />
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Correo</label>
-            <input name="email" type="email" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
+            <label class="field-label" for="register-email">Correo</label>
+            <input id="register-email" name="email" type="email" required class="input" placeholder="tu@correo.com" />
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Contrasena</label>
-            <input name="password" type="password" minlength="6" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
+            <label class="field-label" for="register-password">Contraseña</label>
+            <input id="register-password" name="password" type="password" minlength="6" required class="input" placeholder="Mínimo 6 caracteres" />
           </div>
 
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Rol</label>
-            <select name="role" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none">
-              <option value="reader">Lector (solo leer y comentar)</option>
-              <option value="author">Autor (crear y editar sus posts)</option>
-              <option value="admin">Administrador (control total)</option>
-            </select>
-          </div>
-
-          <button class="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-            Registrarme
-          </button>
+          <button class="btn btn-primary" type="submit">Registrarme</button>
         </form>
 
-        <div id="form-message" class="mt-4 hidden"></div>
+        <div id="form-message" class="hidden"></div>
 
-        <p class="mt-6 text-sm text-slate-600">
-          Ya tienes cuenta?
-          <a href="/login.html" class="font-semibold text-sky-700 hover:text-sky-800">Inicia sesion</a>
-        </p>
+        <div class="auth-footer muted">
+          <span>¿Ya tienes cuenta?</span>
+          <a href="/login.html" class="btn btn-ghost">Inicia sesión</a>
+        </div>
       </section>
     </main>
 

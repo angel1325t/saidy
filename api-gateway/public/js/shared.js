@@ -2,7 +2,7 @@
   const ROLE_LABELS = {
     admin: 'Administrador',
     author: 'Autor',
-    reader: 'Lector'
+    reader: 'Estudiante'
   };
 
   function getToken() {
@@ -132,10 +132,7 @@
   }
 
   function navLink(href, label, isActive) {
-    const activeClasses = isActive
-      ? 'bg-cyan-500/20 text-cyan-200 ring-1 ring-cyan-400/40'
-      : 'text-slate-300 hover:text-cyan-200';
-    return `<a href="${href}" class="rounded-full px-3 py-1.5 text-sm font-semibold transition ${activeClasses}">${label}</a>`;
+    return `<a href="${href}" class="nav-pill ${isActive ? 'is-active' : ''}">${label}</a>`;
   }
 
   function renderNavbar(targetId = 'nav-slot') {
@@ -170,15 +167,21 @@
     const links = user ? privateLinks : publicLinks;
 
     target.innerHTML = `
-      <div class="w-full border-b border-slate-700/60 bg-slate-950/90 backdrop-blur">
-        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <a href="/posts.html" class="text-lg font-bold text-slate-100">Blog Microservicios</a>
-          <div class="flex flex-wrap items-center gap-2">
-            ${links.join('')}
+      <div class="top-nav">
+        <div class="top-nav__inner">
+          <a href="/posts.html" class="top-nav__brand" aria-label="Ir a posts">
+            <span class="top-nav__mark">BM</span>
+            <span>Blog Microservicios</span>
+          </a>
+
+          <div class="nav-meta">
+            <nav class="nav-pills" aria-label="Navegación principal">
+              ${links.join('')}
+            </nav>
             ${
               user
-                ? `<span class="rounded-full bg-cyan-500/15 px-3 py-1 text-xs font-semibold text-cyan-200 ring-1 ring-cyan-400/30">${roleLabel(user.role)}</span>
-                   <button id="logout-btn" class="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-100 hover:border-cyan-400/50 hover:text-cyan-200">Salir</button>`
+                ? `<span class="nav-badge">${roleLabel(user.role)}</span>
+                   <button id="logout-btn" class="btn btn-secondary nav-logout" type="button">Salir</button>`
                 : ''
             }
           </div>
@@ -300,13 +303,8 @@
       return;
     }
 
-    const styles = {
-      info: 'bg-cyan-500/10 text-cyan-200 border-cyan-400/30',
-      error: 'bg-red-500/10 text-red-200 border-red-400/35',
-      success: 'bg-emerald-500/10 text-emerald-200 border-emerald-400/35'
-    };
-
-    element.className = `rounded-lg border px-3 py-2 text-sm ${styles[variant] || styles.info}`;
+    const normalizedVariant = ['info', 'success', 'error'].includes(variant) ? variant : 'info';
+    element.className = `message-box message-box--${normalizedVariant}`;
     element.textContent = text;
     element.classList.remove('hidden');
   }

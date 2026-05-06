@@ -18,8 +18,7 @@
         body: JSON.stringify({
           name: form.name.value,
           email: form.email.value,
-          password: form.password.value,
-          role: form.role.value
+          password: form.password.value
         })
       });
 

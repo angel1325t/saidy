@@ -46,14 +46,9 @@ app.post('/auth/register', async (req, res) => {
   const name = String(req.body.name || '').trim();
   const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || '');
-  const role = normalizeRole(req.body.role);
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'name, email and password are required' });
-  }
-
-  if (!role) {
-    return res.status(400).json({ message: 'Role must be admin, author or reader' });
   }
 
   if (password.length < 6) {
@@ -61,6 +56,18 @@ app.post('/auth/register', async (req, res) => {
   }
 
   try {
+    let role = 'reader';
+    try {
+      const metricsResponse = await axios.get(`${usersServiceUrl}/internal/users/count`);
+      const totalUsers = Number(metricsResponse.data?.total ?? 0);
+      if (Number.isFinite(totalUsers) && totalUsers === 0) {
+        role = 'admin';
+      }
+    } catch (error) {
+      console.error('Unable to resolve bootstrap role:', error.message);
+    }
+
+    role = normalizeRole(role) || 'reader';
     const passwordHash = await bcrypt.hash(password, 10);
 
     const userResponse = await axios.post(`${usersServiceUrl}/users`, {

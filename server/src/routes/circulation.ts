@@ -480,7 +480,7 @@ circulationRouter.get('/fines', requireAuth, requireAnyPermission('fines:read:ow
   const canReadAll = hasAnyPermission(req.auth?.permissions ?? [], 'fines:read:any');
   let query = supabaseAdmin
     .from('fines')
-    .select('*, loans(id,material_id,status,due_at,returned_at), profiles(id,full_name)')
+    .select('*, loans(id,material_id,status,due_at,returned_at), profile:profiles!fines_user_id_fkey(id,full_name)')
     .order('issued_at', { ascending: false });
 
   if (!canReadAll) {

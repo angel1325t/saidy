@@ -230,15 +230,7 @@ function App() {
       setLoadingData(true);
       setError(null);
       try {
-        const { data: refreshedSession } = await supabase.auth.refreshSession();
-        if (!active) return;
-
-        if (refreshedSession.session && refreshedSession.session.access_token !== session.access_token) {
-          setSession(refreshedSession.session);
-          return;
-        }
-
-        const token = (refreshedSession.session ?? session).access_token;
+        const token = session.access_token;
         const me = await apiFetch<{ profile: Profile }>('/api/auth/me', token);
         const [overview, materials, loans, reservations, fines, assets, dashboard] = await Promise.allSettled([
           apiFetch<Overview>('/api/catalog/overview', token),
@@ -461,6 +453,7 @@ function App() {
                 Correo
                 <input
                   type="email"
+                  autoComplete="email"
                   value={authForm.email}
                   onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
                   required
@@ -470,6 +463,7 @@ function App() {
                 Contraseña
                 <input
                   type="password"
+                  autoComplete="current-password"
                   value={authForm.password}
                   onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
                   required
@@ -483,6 +477,7 @@ function App() {
                 Nombre completo
                 <input
                   type="text"
+                  autoComplete="name"
                   value={authForm.fullName}
                   onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))}
                   required
@@ -492,6 +487,7 @@ function App() {
                 Correo
                 <input
                   type="email"
+                  autoComplete="email"
                   value={authForm.email}
                   onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
                   required
@@ -502,6 +498,7 @@ function App() {
                 <input
                   type="password"
                   minLength={6}
+                  autoComplete="new-password"
                   value={authForm.password}
                   onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
                   required
@@ -511,6 +508,7 @@ function App() {
                 Institución
                 <input
                   type="text"
+                  autoComplete="organization"
                   value={authForm.institution}
                   onChange={(event) => setAuthForm((current) => ({ ...current, institution: event.target.value }))}
                 />

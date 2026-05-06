@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRoles, type AuthedRequest } from '../lib/auth.js';
+import { logAuditEvent } from '../lib/audit.js';
+import { requireAuth, type AuthedRequest } from '../lib/auth.js';
 import { sendError } from '../lib/http.js';
+import { hasAnyPermission, requireAnyPermission } from '../lib/rbac.js';
 import { supabaseAdmin } from '../lib/supabase.js';
 
 export const circulationRouter = Router();
@@ -38,14 +40,14 @@ function isBlocked(blockedUntil: string | null | undefined) {
   return new Date(blockedUntil).getTime() > Date.now();
 }
 
-circulationRouter.get('/loans', requireAuth, async (req: AuthedRequest, res) => {
-  const isStaff = ['admin', 'librarian'].includes(req.auth?.profile?.role ?? '');
+circulationRouter.get('/loans', requireAuth, requireAnyPermission('circulation:read:own', 'circulation:read:any'), async (req: AuthedRequest, res) => {
+  const canReadAll = hasAnyPermission(req.auth?.permissions ?? [], 'circulation:read:any');
   let query = supabaseAdmin
     .from('loans')
     .select('*, materials(id,title,kind,cover_url), material_copies(id,barcode,copy_code,status,location)')
     .order('borrowed_at', { ascending: false });
 
-  if (!isStaff) {
+  if (!canReadAll) {
     query = query.eq('user_id', req.auth!.userId);
   }
 
@@ -66,6 +68,12 @@ circulationRouter.post('/loans', requireAuth, async (req: AuthedRequest, res) =>
   const profile = req.auth?.profile;
   if (!profile) {
     return sendError(res, 404, 'Profile not found');
+  }
+
+  const requiredPermission =
+    parsed.data.loan_type === 'digital' ? 'loans:create:digital' : 'loans:create:physical';
+  if (!hasAnyPermission(req.auth?.permissions ?? [], requiredPermission)) {
+    return sendError(res, 403, 'Insufficient permissions');
   }
 
   if (isBlocked(profile.blocked_until)) {
@@ -133,6 +141,14 @@ circulationRouter.post('/loans', requireAuth, async (req: AuthedRequest, res) =>
       .update({ status: 'borrowed', updated_at: new Date().toISOString() })
       .eq('id', copy.id);
 
+    await logAuditEvent({
+      actorId: req.auth!.userId,
+      action: 'circulation.loan.create',
+      entityType: 'loan',
+      entityId: loan.id,
+      metadata: { loan_type: 'physical', material_id: parsed.data.material_id, copy_id: copy.id }
+    });
+
     return res.status(201).json({ loan });
   }
 
@@ -173,6 +189,14 @@ circulationRouter.post('/loans', requireAuth, async (req: AuthedRequest, res) =>
     return sendError(res, 500, 'Unable to create digital loan', loanError.message);
   }
 
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'circulation.loan.create',
+    entityType: 'loan',
+    entityId: loan.id,
+    metadata: { loan_type: 'digital', material_id: parsed.data.material_id }
+  });
+
   return res.status(201).json({ loan });
 });
 
@@ -191,8 +215,14 @@ circulationRouter.post('/loans/:id/renew', requireAuth, async (req: AuthedReques
     return sendError(res, 404, 'Loan not found');
   }
 
-  if (loan.user_id !== req.auth!.userId && !['admin', 'librarian'].includes(req.auth?.profile?.role ?? '')) {
+  const canRenewAny = hasAnyPermission(req.auth?.permissions ?? [], 'loans:renew:any');
+  const canRenewOwn = hasAnyPermission(req.auth?.permissions ?? [], 'loans:renew:own');
+  if (loan.user_id !== req.auth!.userId && !canRenewAny) {
     return sendError(res, 403, 'You can only renew your own loans');
+  }
+
+  if (loan.user_id === req.auth!.userId && !canRenewOwn && !canRenewAny) {
+    return sendError(res, 403, 'Insufficient permissions');
   }
 
   if (loan.status !== 'active') {
@@ -220,6 +250,14 @@ circulationRouter.post('/loans/:id/renew', requireAuth, async (req: AuthedReques
     return sendError(res, 500, 'Unable to renew loan', renewError.message);
   }
 
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'circulation.loan.renew',
+    entityType: 'loan',
+    entityId: renewed.id,
+    metadata: { loan_user_id: loan.user_id, renewed_count: renewedCount + 1 }
+  });
+
   return res.json({ loan: renewed });
 });
 
@@ -238,8 +276,14 @@ circulationRouter.post('/loans/:id/return', requireAuth, async (req: AuthedReque
     return sendError(res, 404, 'Loan not found');
   }
 
-  if (loan.user_id !== req.auth!.userId && !['admin', 'librarian'].includes(req.auth?.profile?.role ?? '')) {
+  const canReturnAny = hasAnyPermission(req.auth?.permissions ?? [], 'loans:return:any');
+  const canReturnOwn = hasAnyPermission(req.auth?.permissions ?? [], 'loans:return:own');
+  if (loan.user_id !== req.auth!.userId && !canReturnAny) {
     return sendError(res, 403, 'You can only return your own loans');
+  }
+
+  if (loan.user_id === req.auth!.userId && !canReturnOwn && !canReturnAny) {
+    return sendError(res, 403, 'Insufficient permissions');
   }
 
   const now = new Date();
@@ -285,10 +329,18 @@ circulationRouter.post('/loans/:id/return', requireAuth, async (req: AuthedReque
     });
   }
 
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'circulation.loan.return',
+    entityType: 'loan',
+    entityId: returnedLoan.id,
+    metadata: { loan_user_id: loan.user_id, overdue_days: overdueDays }
+  });
+
   return res.json({ loan: returnedLoan, overdueDays });
 });
 
-circulationRouter.post('/reservations', requireAuth, async (req: AuthedRequest, res) => {
+circulationRouter.post('/reservations', requireAuth, requireAnyPermission('reservations:create'), async (req: AuthedRequest, res) => {
   const parsed = reservationSchema.safeParse(req.body);
   if (!parsed.success) {
     return sendError(res, 400, 'Invalid reservation payload', parsed.error.flatten());
@@ -296,7 +348,7 @@ circulationRouter.post('/reservations', requireAuth, async (req: AuthedRequest, 
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('id,reservation_limit,member_type,role,blocked_until')
+    .select('id,reservation_limit,member_type,blocked_until')
     .eq('id', req.auth!.userId)
     .single();
 
@@ -342,7 +394,13 @@ circulationRouter.post('/reservations', requireAuth, async (req: AuthedRequest, 
       queue_position: 1,
       status: 'queued',
       priority_score:
-        profile.role === 'librarian' ? 5 : profile.member_type === 'teacher' ? 4 : profile.member_type === 'researcher' ? 3 : 1
+        hasAnyPermission(req.auth?.permissions ?? [], 'loans:create:physical', 'loans:create:digital')
+          ? 5
+          : profile.member_type === 'teacher'
+            ? 4
+            : profile.member_type === 'researcher'
+              ? 3
+              : 1
     })
     .select('*')
     .single();
@@ -351,17 +409,25 @@ circulationRouter.post('/reservations', requireAuth, async (req: AuthedRequest, 
     return sendError(res, 500, 'Unable to create reservation', error.message);
   }
 
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'circulation.reservation.create',
+    entityType: 'reservation',
+    entityId: data.id,
+    metadata: { material_id: parsed.data.material_id }
+  });
+
   return res.status(201).json({ reservation: data });
 });
 
-circulationRouter.get('/reservations', requireAuth, async (req: AuthedRequest, res) => {
-  const isStaff = ['admin', 'librarian'].includes(req.auth?.profile?.role ?? '');
+circulationRouter.get('/reservations', requireAuth, requireAnyPermission('reservations:read:own', 'reservations:read:any'), async (req: AuthedRequest, res) => {
+  const canReadAll = hasAnyPermission(req.auth?.permissions ?? [], 'reservations:read:any');
   let query = supabaseAdmin
     .from('reservations')
-    .select('*, materials(id,title,kind,cover_url), profiles(id,full_name,member_type,role)')
+    .select('*, materials(id,title,kind,cover_url), profiles(id,full_name,member_type)')
     .order('reserved_at', { ascending: false });
 
-  if (!isStaff) {
+  if (!canReadAll) {
     query = query.eq('user_id', req.auth!.userId);
   }
 
@@ -374,7 +440,12 @@ circulationRouter.get('/reservations', requireAuth, async (req: AuthedRequest, r
 });
 
 circulationRouter.post('/reservations/:id/cancel', requireAuth, async (req: AuthedRequest, res) => {
-  const isStaff = ['admin', 'librarian'].includes(req.auth?.profile?.role ?? '');
+  const canCancelAny = hasAnyPermission(req.auth?.permissions ?? [], 'reservations:cancel:any');
+  const canCancelOwn = hasAnyPermission(req.auth?.permissions ?? [], 'reservations:cancel:own');
+  if (!canCancelAny && !canCancelOwn) {
+    return sendError(res, 403, 'Insufficient permissions');
+  }
+
   const { data, error } = await supabaseAdmin
     .from('reservations')
     .update({
@@ -382,7 +453,7 @@ circulationRouter.post('/reservations/:id/cancel', requireAuth, async (req: Auth
       cancelled_at: new Date().toISOString()
     })
     .eq('id', req.params.id)
-    .match(isStaff ? {} : { user_id: req.auth!.userId })
+    .match(canCancelAny ? {} : { user_id: req.auth!.userId })
     .select('*')
     .maybeSingle();
 
@@ -394,17 +465,25 @@ circulationRouter.post('/reservations/:id/cancel', requireAuth, async (req: Auth
     return sendError(res, 404, 'Reservation not found');
   }
 
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'circulation.reservation.cancel',
+    entityType: 'reservation',
+    entityId: data.id,
+    metadata: { user_id: data.user_id }
+  });
+
   return res.json({ reservation: data });
 });
 
-circulationRouter.get('/fines', requireAuth, async (req: AuthedRequest, res) => {
-  const isStaff = ['admin', 'librarian'].includes(req.auth?.profile?.role ?? '');
+circulationRouter.get('/fines', requireAuth, requireAnyPermission('fines:read:own', 'fines:read:any'), async (req: AuthedRequest, res) => {
+  const canReadAll = hasAnyPermission(req.auth?.permissions ?? [], 'fines:read:any');
   let query = supabaseAdmin
     .from('fines')
-    .select('*, loans(id,material_id,status,due_at,returned_at), profiles(id,full_name,role)')
+    .select('*, loans(id,material_id,status,due_at,returned_at), profiles(id,full_name)')
     .order('issued_at', { ascending: false });
 
-  if (!isStaff) {
+  if (!canReadAll) {
     query = query.eq('user_id', req.auth!.userId);
   }
 
@@ -416,14 +495,14 @@ circulationRouter.get('/fines', requireAuth, async (req: AuthedRequest, res) => 
   return res.json({ items: data ?? [] });
 });
 
-circulationRouter.post('/fines/:id/pay', requireAuth, requireRoles('admin', 'librarian'), async (_req, res) => {
+circulationRouter.post('/fines/:id/pay', requireAuth, requireAnyPermission('fines:pay:any'), async (req: AuthedRequest, res) => {
   const { data, error } = await supabaseAdmin
     .from('fines')
     .update({
       status: 'paid',
       paid_at: new Date().toISOString()
     })
-    .eq('id', _req.params.id)
+    .eq('id', req.params.id)
     .select('*')
     .maybeSingle();
 
@@ -434,6 +513,14 @@ circulationRouter.post('/fines/:id/pay', requireAuth, requireRoles('admin', 'lib
   if (!data) {
     return sendError(res, 404, 'Fine not found');
   }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'circulation.fine.pay',
+    entityType: 'fine',
+    entityId: data.id,
+    metadata: { status: data.status }
+  });
 
   return res.json({ fine: data });
 });

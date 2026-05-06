@@ -1,11 +1,13 @@
 import { Router } from 'express';
+import { logAuditEvent } from '../lib/audit.js';
 import { requireAuth, type AuthedRequest } from '../lib/auth.js';
 import { sendError } from '../lib/http.js';
+import { requireAnyPermission } from '../lib/rbac.js';
 import { supabaseAdmin } from '../lib/supabase.js';
 
 export const digitalRouter = Router();
 
-digitalRouter.get('/assets', requireAuth, async (_req, res) => {
+digitalRouter.get('/assets', requireAuth, requireAnyPermission('digital:access'), async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('digital_assets')
     .select('*, materials(id,title,kind,cover_url)')
@@ -18,7 +20,7 @@ digitalRouter.get('/assets', requireAuth, async (_req, res) => {
   return res.json({ items: data ?? [] });
 });
 
-digitalRouter.get('/materials/:id/access', requireAuth, async (req: AuthedRequest, res) => {
+digitalRouter.get('/materials/:id/access', requireAuth, requireAnyPermission('digital:access'), async (req: AuthedRequest, res) => {
   if (!req.auth?.profile?.can_access_digital) {
     return sendError(res, 403, 'Digital access is disabled for this account');
   }
@@ -36,6 +38,14 @@ digitalRouter.get('/materials/:id/access', requireAuth, async (req: AuthedReques
   if (!data) {
     return sendError(res, 404, 'Digital asset not found');
   }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'digital.access',
+    entityType: 'digital_asset',
+    entityId: data.id,
+    metadata: { material_id: req.params.id }
+  });
 
   return res.json({
     asset: data,

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth, requireRoles, type AuthedRequest } from '../lib/auth.js';
+import { logAuditEvent } from '../lib/audit.js';
+import { requireAuth, type AuthedRequest } from '../lib/auth.js';
 import { sendError } from '../lib/http.js';
+import { requireAnyPermission } from '../lib/rbac.js';
 import { supabaseAdmin } from '../lib/supabase.js';
 
 export const catalogRouter = Router();
@@ -14,7 +16,7 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).default(12)
 });
 
-catalogRouter.get('/overview', requireAuth, async (_req, res) => {
+catalogRouter.get('/overview', requireAuth, requireAnyPermission('catalog:read'), async (_req, res) => {
   const [materials, copies, loans, reservations] = await Promise.all([
     supabaseAdmin.from('materials').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('material_copies').select('id', { count: 'exact', head: true }),
@@ -30,7 +32,7 @@ catalogRouter.get('/overview', requireAuth, async (_req, res) => {
   });
 });
 
-catalogRouter.get('/materials', requireAuth, async (req, res) => {
+catalogRouter.get('/materials', requireAuth, requireAnyPermission('catalog:read'), async (req, res) => {
   const parsed = listQuerySchema.safeParse(req.query);
   if (!parsed.success) {
     return sendError(res, 400, 'Invalid catalog filters', parsed.error.flatten());
@@ -93,7 +95,7 @@ catalogRouter.get('/materials', requireAuth, async (req, res) => {
   });
 });
 
-catalogRouter.get('/materials/:id', requireAuth, async (req, res) => {
+catalogRouter.get('/materials/:id', requireAuth, requireAnyPermission('catalog:read'), async (req, res) => {
   const { data, error } = await supabaseAdmin
     .from('materials')
     .select(
@@ -153,7 +155,7 @@ const materialSchema = z.object({
   tags: z.array(z.string().min(1).max(40)).max(15).default([])
 });
 
-catalogRouter.post('/', requireAuth, requireRoles('admin', 'librarian'), async (req: AuthedRequest, res) => {
+catalogRouter.post('/', requireAuth, requireAnyPermission('catalog:create'), async (req: AuthedRequest, res) => {
   const parsed = materialSchema.safeParse(req.body);
   if (!parsed.success) {
     return sendError(res, 400, 'Invalid material payload', parsed.error.flatten());
@@ -193,6 +195,17 @@ catalogRouter.post('/', requireAuth, requireRoles('admin', 'librarian'), async (
       }))
     );
   }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'catalog.create',
+    entityType: 'material',
+    entityId: inserted.id,
+    metadata: {
+      kind: inserted.kind,
+      title: inserted.title
+    }
+  });
 
   return res.status(201).json({ material: inserted });
 });

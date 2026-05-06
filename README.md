@@ -20,7 +20,7 @@ Sistema web de biblioteca híbrida con:
 npm install
 ```
 
-2. Configura variables en `.env`
+2. Configura variables en `.env` en la raíz del repo. Ese archivo alimenta tanto al `server/` como al `web/`.
 
 3. Ejecuta el stack:
 

@@ -1,6 +1,12 @@
 import { config } from 'dotenv';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-config();
+for (const envPath of [resolve(process.cwd(), '.env'), resolve(process.cwd(), '..', '.env')]) {
+  if (existsSync(envPath)) {
+    config({ path: envPath });
+  }
+}
 
 function readEnv(name: string, fallback?: string) {
   const value = process.env[name] ?? fallback;

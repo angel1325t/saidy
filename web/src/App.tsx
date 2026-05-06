@@ -517,7 +517,12 @@ function App() {
   }
 
   const profile = portalData.profile;
-  const isStaff = profile?.permissions.some((permission) => permission.key === 'dashboard:view') ?? false;
+  const isAdmin = profile?.roles.some((role) => role.key === 'ADMIN') ?? false;
+  const isStaff =
+    isAdmin ||
+    profile?.roles.some((role) => role.key === 'BIBLIOTECARIO') ||
+    profile?.permissions.some((permission) => permission.key === 'dashboard:view') ||
+    false;
   const roleSummary = profile?.roles.map((role) => roleLabel[role.key]).join(' · ') || 'Miembro';
   const permissionSummary = profile?.permissions.length ?? 0;
   const summary = toSummary(filteredMaterials);
@@ -838,7 +843,11 @@ function App() {
               ) : null}
             </div>
 
-            <AdminRbacPanel token={session.access_token} permissions={profile?.permissions.map((permission) => permission.key) ?? []} />
+            <AdminRbacPanel
+              token={session.access_token}
+              roleKeys={profile?.roles.map((role) => role.key) ?? []}
+              permissions={profile?.permissions.map((permission) => permission.key) ?? []}
+            />
           </section>
         ) : null}
       </main>

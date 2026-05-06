@@ -55,6 +55,7 @@ type AuditEntry = {
 
 type AdminRbacPanelProps = {
   token: string;
+  roleKeys: string[];
   permissions: string[];
 };
 
@@ -100,14 +101,15 @@ async function maybeFetch<T>(enabled: boolean, path: string, token: string): Pro
   return apiFetch<T>(path, token);
 }
 
-export function AdminRbacPanel({ token, permissions }: AdminRbacPanelProps) {
+export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelProps) {
   const permissionSet = new Set(permissions);
-  const canReadUsers = permissionSet.has('users:read');
-  const canCreateUsers = permissionSet.has('users:create');
-  const canAssignRoles = permissionSet.has('users:assign_roles');
-  const canManageRoles = permissionSet.has('roles:manage');
-  const canManagePermissions = permissionSet.has('permissions:manage');
-  const canReadAudit = permissionSet.has('audit:read');
+  const isAdmin = roleKeys.includes('ADMIN');
+  const canReadUsers = isAdmin || permissionSet.has('users:read');
+  const canCreateUsers = isAdmin || permissionSet.has('users:create');
+  const canAssignRoles = isAdmin || permissionSet.has('users:assign_roles');
+  const canManageRoles = isAdmin || permissionSet.has('roles:manage');
+  const canManagePermissions = isAdmin || permissionSet.has('permissions:manage');
+  const canReadAudit = isAdmin || permissionSet.has('audit:read');
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
@@ -358,7 +360,7 @@ export function AdminRbacPanel({ token, permissions }: AdminRbacPanelProps) {
     }
   };
 
-  const canSeeAnyAdminTab = canReadUsers || canManageRoles || canManagePermissions || canReadAudit;
+  const canSeeAnyAdminTab = isAdmin || canReadUsers || canManageRoles || canManagePermissions || canReadAudit;
 
   return (
     <section className="admin-rbac">

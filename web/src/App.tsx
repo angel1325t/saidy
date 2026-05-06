@@ -230,31 +230,51 @@ function App() {
       setLoadingData(true);
       setError(null);
       try {
-        const token = session.access_token;
-        const [me, overview, materials, loans, reservations, fines, assets, dashboard] = await Promise.all([
-          apiFetch<{ profile: Profile }>('/api/auth/me', token),
+        const { data: refreshedSession } = await supabase.auth.refreshSession();
+        if (!active) return;
+
+        if (refreshedSession.session && refreshedSession.session.access_token !== session.access_token) {
+          setSession(refreshedSession.session);
+          return;
+        }
+
+        const token = (refreshedSession.session ?? session).access_token;
+        const me = await apiFetch<{ profile: Profile }>('/api/auth/me', token);
+        const [overview, materials, loans, reservations, fines, assets, dashboard] = await Promise.allSettled([
           apiFetch<Overview>('/api/catalog/overview', token),
           apiFetch<{ items: Material[] }>('/api/catalog/materials?page=1&limit=12', token),
           apiFetch<{ items: Loan[] }>('/api/circulation/loans', token),
           apiFetch<{ items: Reservation[] }>('/api/circulation/reservations', token),
           apiFetch<{ items: Fine[] }>('/api/circulation/fines', token),
           apiFetch<{ items: DigitalAsset[] }>('/api/digital/assets', token),
-          apiFetch<AdminDashboard>('/api/admin/dashboard', token).catch(() => null)
+          apiFetch<AdminDashboard>('/api/admin/dashboard', token)
         ]);
 
         if (!active) return;
 
         setPortalData({
           profile: me.profile,
-          overview,
-          materials: materials.items,
-          loans: loans.items,
-          reservations: reservations.items,
-          fines: fines.items,
-          digitalAssets: assets.items,
-          dashboard
+          overview: overview.status === 'fulfilled' ? overview.value : null,
+          materials: materials.status === 'fulfilled' ? materials.value.items : [],
+          loans: loans.status === 'fulfilled' ? loans.value.items : [],
+          reservations: reservations.status === 'fulfilled' ? reservations.value.items : [],
+          fines: fines.status === 'fulfilled' ? fines.value.items : [],
+          digitalAssets: assets.status === 'fulfilled' ? assets.value.items : [],
+          dashboard: dashboard.status === 'fulfilled' ? dashboard.value : null
         });
-        setSelectedMaterialId(materials.items[0]?.id ?? null);
+        setSelectedMaterialId(materials.status === 'fulfilled' ? materials.value.items[0]?.id ?? null : null);
+
+        const firstFailure =
+          [overview, materials, loans, reservations, fines, assets, dashboard].find(
+            (result) => result.status === 'rejected'
+          ) ?? null;
+        if (firstFailure?.status === 'rejected') {
+          setError(
+            firstFailure.reason instanceof Error
+              ? firstFailure.reason.message
+              : 'Algunos módulos no se pudieron cargar'
+          );
+        }
       } catch (loadError) {
         if (!active) return;
         setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el portal');

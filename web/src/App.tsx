@@ -5,16 +5,39 @@ import { apiFetch } from './lib/api.js';
 
 type Section = 'catalog' | 'circulation' | 'digital' | 'admin';
 
+type RoleKey = 'ADMIN' | 'BIBLIOTECARIO' | 'DOCENTE' | 'INVESTIGADOR' | 'ESTUDIANTE';
+
+type Role = {
+  id: string;
+  key: RoleKey;
+  name: string;
+  description: string | null;
+};
+
+type Permission = {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+};
+
 type Profile = {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'librarian' | 'member';
   member_type: 'public' | 'student' | 'teacher' | 'researcher' | 'staff';
   blocked_until: string | null;
   can_access_digital: boolean;
   loan_limit: number;
   reservation_limit: number;
+  institution: string | null;
+  department: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  preferred_language: string;
+  roles: Role[];
+  permissions: Permission[];
 };
 
 type Material = {
@@ -118,10 +141,12 @@ const sections: Array<{ id: Section; label: string; description: string }> = [
   { id: 'admin', label: 'Administración', description: 'Inventario, adquisiciones y analítica' }
 ];
 
-const roleLabel: Record<Profile['role'], string> = {
-  admin: 'Administrador',
-  librarian: 'Bibliotecario',
-  member: 'Miembro'
+const roleLabel: Record<RoleKey, string> = {
+  ADMIN: 'Administrador',
+  BIBLIOTECARIO: 'Bibliotecario',
+  DOCENTE: 'Docente',
+  INVESTIGADOR: 'Investigador',
+  ESTUDIANTE: 'Estudiante'
 };
 
 const memberLabel: Record<Profile['member_type'], string> = {
@@ -321,8 +346,7 @@ function App() {
         data: {
           full_name: authForm.fullName,
           member_type: authForm.memberType,
-          institution: authForm.institution,
-          role: 'member'
+          institution: authForm.institution
         }
       }
     });
@@ -492,7 +516,9 @@ function App() {
   }
 
   const profile = portalData.profile;
-  const isStaff = profile?.role === 'admin' || profile?.role === 'librarian';
+  const isStaff = profile?.permissions.some((permission) => permission.key === 'dashboard:view') ?? false;
+  const roleSummary = profile?.roles.map((role) => roleLabel[role.key]).join(' · ') || 'Miembro';
+  const permissionSummary = profile?.permissions.length ?? 0;
   const summary = toSummary(filteredMaterials);
 
   return (
@@ -531,7 +557,7 @@ function App() {
         <header className="workspace-hero">
           <div>
             <div className="eyebrow">Portal operativo</div>
-            <h1>{profile?.full_name || 'Usuario'} · {profile ? roleLabel[profile.role] : 'Miembro'}</h1>
+            <h1>{profile?.full_name || 'Usuario'} · {roleSummary}</h1>
             <p>
               {profile ? memberLabel[profile.member_type] : 'Usuario'} · préstamo máximo {profile?.loan_limit ?? 0} · reservas máximas{' '}
               {profile?.reservation_limit ?? 0}
@@ -803,7 +829,8 @@ function App() {
               {profile ? (
                 <dl className="profile-list">
                   <div><dt>Correo</dt><dd>{profile.email}</dd></div>
-                  <div><dt>Rol</dt><dd>{roleLabel[profile.role]}</dd></div>
+                  <div><dt>Roles</dt><dd>{profile.roles.length > 0 ? profile.roles.map((role) => roleLabel[role.key]).join(', ') : 'Sin rol'}</dd></div>
+                  <div><dt>Permisos</dt><dd>{permissionSummary}</dd></div>
                   <div><dt>Tipo</dt><dd>{memberLabel[profile.member_type]}</dd></div>
                   <div><dt>Digital</dt><dd>{profile.can_access_digital ? 'Permitido' : 'Bloqueado'}</dd></div>
                 </dl>

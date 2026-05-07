@@ -142,7 +142,7 @@
   }
 
   function updatePaginationUi() {
-    pageInfo.textContent = `Pagina ${state.page} de ${state.totalPages} (${state.total} resultados)`;
+    pageInfo.textContent = `Página ${state.page} de ${state.totalPages} (${state.total} resultados)`;
     prevPageBtn.disabled = state.page <= 1;
     nextPageBtn.disabled = state.page >= state.totalPages;
   }

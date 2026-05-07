@@ -4,49 +4,88 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Registro | Blog Microservicios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/app.css" />
   </head>
   <body class="app-shell">
     <div id="nav-slot"></div>
 
-    <main class="page-wrap">
-      <section class="hero">
-        <p class="hero-kicker">Registro</p>
-        <h1>Crear cuenta</h1>
-        <p>
-          La cuenta se crea como <strong>Estudiante</strong>. Si es la primera cuenta del sistema, se creará como <strong>Administrador</strong>
-          para inicializar el panel.
-        </p>
-      </section>
+    <main class="page-wrap auth-page">
+      <div class="auth-layout">
+        <aside class="auth-aside">
+          <p class="auth-aside__kicker">Blog Microservicios</p>
+          <h1>Crea tu cuenta</h1>
+          <p>
+            Tu cuenta se registra como <strong>Estudiante</strong>. Si es la primera cuenta del sistema, se crea como <strong>Administrador</strong>
+            para inicializar el panel.
+          </p>
 
-      <section class="panel">
-        <form id="register-form" class="form-grid">
-          <div>
-            <label class="field-label" for="register-name">Nombre</label>
-            <input id="register-name" name="name" type="text" required class="input" placeholder="Tu nombre" />
+          <ul class="auth-points">
+            <li class="auth-point">
+              <span class="auth-point__icon">RB</span>
+              <div>
+                <strong>Roles controlados</strong>
+                <span>El rol admin crea y asigna los demás roles.</span>
+              </div>
+            </li>
+            <li class="auth-point">
+              <span class="auth-point__icon">PW</span>
+              <div>
+                <strong>Contraseña segura</strong>
+                <span>Usa mínimo 6 caracteres y no la compartas.</span>
+              </div>
+            </li>
+            <li class="auth-point">
+              <span class="auth-point__icon">PR</span>
+              <div>
+                <strong>Perfil editable</strong>
+                <span>Actualiza tu bio y avatar cuando quieras.</span>
+              </div>
+            </li>
+          </ul>
+        </aside>
+
+        <section class="panel auth-card">
+          <h2>Crear cuenta</h2>
+          <p class="muted">Completa tus datos para registrarte.</p>
+
+          <div class="read-only-note">Nota: el rol no se elige aquí. Un administrador puede asignarte permisos después.</div>
+
+          <form id="register-form" class="form-grid">
+            <div>
+              <label class="field-label" for="register-name">Nombre</label>
+              <input id="register-name" name="name" type="text" required class="input" placeholder="Tu nombre" autocomplete="name" />
+            </div>
+
+            <div>
+              <label class="field-label" for="register-email">Correo</label>
+              <input id="register-email" name="email" type="email" required class="input" placeholder="tu@correo.com" autocomplete="email" />
+            </div>
+
+            <div>
+              <label class="field-label" for="register-password">Contraseña</label>
+              <input
+                id="register-password"
+                name="password"
+                type="password"
+                minlength="6"
+                required
+                class="input"
+                placeholder="Mínimo 6 caracteres"
+                autocomplete="new-password"
+              />
+            </div>
+
+            <button class="btn btn-primary" type="submit">Registrarme</button>
+          </form>
+
+          <div id="form-message" class="hidden"></div>
+
+          <div class="auth-footer muted">
+            <span>¿Ya tienes cuenta?</span>
+            <a href="/login.html" class="btn btn-ghost">Inicia sesión</a>
           </div>
-
-          <div>
-            <label class="field-label" for="register-email">Correo</label>
-            <input id="register-email" name="email" type="email" required class="input" placeholder="tu@correo.com" />
-          </div>
-
-          <div>
-            <label class="field-label" for="register-password">Contraseña</label>
-            <input id="register-password" name="password" type="password" minlength="6" required class="input" placeholder="Mínimo 6 caracteres" />
-          </div>
-
-          <button class="btn btn-primary" type="submit">Registrarme</button>
-        </form>
-
-        <div id="form-message" class="hidden"></div>
-
-        <div class="auth-footer muted">
-          <span>¿Ya tienes cuenta?</span>
-          <a href="/login.html" class="btn btn-ghost">Inicia sesión</a>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
 
     <script src="/js/shared.js"></script>

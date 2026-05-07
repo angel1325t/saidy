@@ -6,7 +6,7 @@
   --bg-2:        #ffffff;
   --bg-3:        #f1f5f9;
   --bg-4:        #0f172a;
-  --surface:     rgba(255, 255, 255, 0.82);
+  --surface:     rgba(255, 255, 255, 0.92);
   --line:        rgba(15, 23, 42, 0.10);
   --line-strong: rgba(15, 23, 42, 0.16);
 
@@ -144,7 +144,7 @@ body.app-shell {
   min-height: 100vh;
   color: var(--ink);
   font-family: 'DM Sans', system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.55;
   background-color: var(--bg);
   background-image:
@@ -244,8 +244,6 @@ body.app-shell {
   border-radius: var(--r-lg);
   padding: 1.35rem 1.5rem;
   background: var(--surface);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   box-shadow: var(--shadow-md);
   transition: border-color 0.25s var(--ease);
 }
@@ -1116,7 +1114,159 @@ body.app-shell {
 ::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.26); }
 
 /* ─── RESPONSIVE ──────────────────────────────────────────────── */
+/* â”€â”€â”€ AUTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.auth-page {
+  min-height: calc(100vh - 76px);
+  display: grid;
+  align-content: start;
+  padding-top: 1.75rem;
+}
+
+.auth-layout {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 420px);
+  gap: 1.1rem;
+  align-items: stretch;
+}
+
+.auth-aside {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 2rem 2.1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.auth-aside::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(37,99,235,0.10) 0%, transparent 58%);
+  pointer-events: none;
+}
+
+.auth-aside::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,85,247,0.14), transparent 65%);
+  pointer-events: none;
+}
+
+.auth-aside__kicker {
+  margin: 0 0 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.auth-aside__kicker::before {
+  content: '';
+  width: 18px;
+  height: 1.5px;
+  background: var(--gold);
+  opacity: 0.85;
+}
+
+.auth-aside h1 {
+  margin: 0;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  font-size: clamp(2.0rem, 3vw, 2.7rem);
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.auth-aside p {
+  margin: 0.9rem 0 0;
+  color: var(--ink-2);
+  line-height: 1.65;
+  max-width: 58ch;
+}
+
+.auth-points {
+  margin: 1.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.auth-point {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  border: 1px solid rgba(15,23,42,0.08);
+  border-radius: var(--r-md);
+  padding: 0.8rem 0.9rem;
+  background: rgba(255,255,255,0.55);
+}
+
+.auth-point__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(37,99,235,0.10);
+  border: 1px solid rgba(37,99,235,0.16);
+  color: var(--ink);
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.auth-point strong {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  color: var(--ink);
+  margin: 0;
+}
+
+.auth-point span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.86rem;
+  color: var(--ink-2);
+}
+
+.auth-card {
+  margin-top: 0;
+  padding: 1.6rem 1.7rem;
+}
+
+.auth-card h2 {
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.auth-card .muted {
+  margin-top: 0.45rem;
+}
+
+.auth-card .form-grid {
+  margin-top: 1.15rem;
+}
+
 @media (max-width: 980px) {
+  .auth-layout { grid-template-columns: 1fr; }
+  .auth-page { min-height: auto; padding-top: 1.25rem; }
   .admin-wrap { grid-template-columns: 1fr; }
   .admin-menu { position: static; }
 }

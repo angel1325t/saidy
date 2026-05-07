@@ -4,41 +4,77 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Blog Microservicios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/app.css" />
   </head>
   <body class="app-shell">
     <div id="nav-slot"></div>
 
-    <main class="page-wrap">
-      <section class="hero">
-        <p class="hero-kicker">Acceso</p>
-        <h1>Iniciar sesión</h1>
-        <p>Entra con tu cuenta para leer, comentar y participar en el blog.</p>
-      </section>
+    <main class="page-wrap auth-page">
+      <div class="auth-layout">
+        <aside class="auth-aside">
+          <p class="auth-aside__kicker">Blog Microservicios</p>
+          <h1>Bienvenido de vuelta</h1>
+          <p>Accede a tu cuenta para leer posts, comentar y gestionar tu perfil.</p>
 
-      <section class="panel">
-        <form id="login-form" class="form-grid">
-          <div>
-            <label class="field-label" for="login-email">Correo</label>
-            <input id="login-email" name="email" type="email" required class="input" placeholder="tu@correo.com" />
+          <ul class="auth-points">
+            <li class="auth-point">
+              <span class="auth-point__icon">UI</span>
+              <div>
+                <strong>Interfaz limpia</strong>
+                <span>Diseño claro y consistente en todas las pantallas.</span>
+              </div>
+            </li>
+            <li class="auth-point">
+              <span class="auth-point__icon">OK</span>
+              <div>
+                <strong>Acceso rápido</strong>
+                <span>Ingresa en segundos con tu correo y contraseña.</span>
+              </div>
+            </li>
+            <li class="auth-point">
+              <span class="auth-point__icon">ADM</span>
+              <div>
+                <strong>Control por roles</strong>
+                <span>Administradores asignan permisos cuando sea necesario.</span>
+              </div>
+            </li>
+          </ul>
+        </aside>
+
+        <section class="panel auth-card">
+          <h2>Iniciar sesión</h2>
+          <p class="muted">Usa tu correo y contraseña para entrar.</p>
+
+          <form id="login-form" class="form-grid">
+            <div>
+              <label class="field-label" for="login-email">Correo</label>
+              <input id="login-email" name="email" type="email" required class="input" placeholder="tu@correo.com" autocomplete="email" />
+            </div>
+
+            <div>
+              <label class="field-label" for="login-password">Contraseña</label>
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                required
+                class="input"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+            </div>
+
+            <button class="btn btn-primary" type="submit">Entrar</button>
+          </form>
+
+          <div id="form-message" class="hidden"></div>
+
+          <div class="auth-footer muted">
+            <span>¿No tienes cuenta?</span>
+            <a href="/register.html" class="btn btn-ghost">Regístrate</a>
           </div>
-
-          <div>
-            <label class="field-label" for="login-password">Contraseña</label>
-            <input id="login-password" name="password" type="password" required class="input" placeholder="••••••••" />
-          </div>
-
-          <button class="btn btn-primary" type="submit">Entrar</button>
-        </form>
-
-        <div id="form-message" class="hidden"></div>
-
-        <div class="auth-footer muted">
-          <span>¿No tienes cuenta?</span>
-          <a href="/register.html" class="btn btn-ghost">Regístrate</a>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
 
     <script src="/js/shared.js"></script>

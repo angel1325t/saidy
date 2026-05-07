@@ -255,7 +255,7 @@
     );
 
     if (statsGeneratedAt) {
-      statsGeneratedAt.textContent = `Ultima actualizacion: ${formatDateTime(stats.generatedAt || new Date(), { timeStyle: 'medium' })}`;
+      statsGeneratedAt.textContent = `Última actualización: ${formatDateTime(stats.generatedAt || new Date(), { timeStyle: 'medium' })}`;
     }
 
     renderCharts(stats);

@@ -5,7 +5,9 @@ import { ApiError, apiFetch } from './lib/api.js';
 import { AdminRbacPanel } from './components/AdminRbacPanel.js';
 import { LibraryOperationsPanel } from './components/LibraryOperationsPanel.js';
 
-type Section = 'catalog' | 'circulation' | 'digital' | 'admin';
+type Section = 'home' | 'catalog' | 'circulation' | 'digital' | 'admin';
+
+type ThemeMode = 'light' | 'dark';
 
 type RoleKey = 'ADMIN' | 'BIBLIOTECARIO' | 'DOCENTE' | 'INVESTIGADOR' | 'ESTUDIANTE';
 
@@ -138,6 +140,7 @@ const emptyData: PortalData = {
 };
 
 const sections: Array<{ id: Section; label: string; description: string }> = [
+  { id: 'home', label: 'Inicio', description: 'Búsqueda, destacados y atajos' },
   { id: 'catalog', label: 'Catálogo', description: 'Buscar y reservar materiales' },
   { id: 'circulation', label: 'Circulación', description: 'Préstamos, renovaciones y multas' },
   { id: 'digital', label: 'Digital', description: 'Acceso a materiales digitales' },
@@ -186,11 +189,100 @@ function toSummary(materials: Material[]) {
     .slice(0, 4);
 }
 
+function readInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'light';
+
+  const stored = window.localStorage.getItem('saidy_theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+
+  if (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) {
+    return 'dark';
+  }
+
+  return 'light';
+}
+
+function ThemeIcon({ mode }: { mode: ThemeMode }) {
+  if (mode === 'dark') {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-12.75a.9.9 0 0 1 .9.9v1.1a.9.9 0 1 1-1.8 0v-1.1a.9.9 0 0 1 .9-.9Zm0 16.4a.9.9 0 0 1 .9.9v1.1a.9.9 0 1 1-1.8 0v-1.1a.9.9 0 0 1 .9-.9Zm8.5-8.5a.9.9 0 0 1 .9.9.9.9 0 0 1-.9.9h-1.1a.9.9 0 1 1 0-1.8h1.1ZM4.7 12a.9.9 0 0 1-.9.9H2.7a.9.9 0 1 1 0-1.8h1.1a.9.9 0 0 1 .9.9Zm13.55-6.25a.9.9 0 0 1 1.27 0 .9.9 0 0 1 0 1.27l-.78.78a.9.9 0 1 1-1.27-1.27l.78-.78ZM5.48 18.52a.9.9 0 0 1 1.27 0 .9.9 0 0 1 0 1.27l-.78.78a.9.9 0 1 1-1.27-1.27l.78-.78Zm13.04 1.27a.9.9 0 0 1-1.27 0l-.78-.78a.9.9 0 1 1 1.27-1.27l.78.78a.9.9 0 0 1 0 1.27ZM6.75 6.75a.9.9 0 0 1-1.27 0l-.78-.78a.9.9 0 1 1 1.27-1.27l.78.78a.9.9 0 0 1 0 1.27Z"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M21.5 14.8c-1.13.52-2.38.82-3.7.82-4.6 0-8.33-3.73-8.33-8.33 0-1.33.3-2.58.82-3.71a.9.9 0 0 0-1.1-1.25 10.2 10.2 0 1 0 13.56 13.56.9.9 0 0 0-1.25-1.1Zm-9.24 6.03A8.4 8.4 0 0 1 7.9 4.95a10.12 10.12 0 0 0 9.9 12.16 8.38 8.38 0 0 1-5.54 3.72Z"
+      />
+    </svg>
+  );
+}
+
+function BooksIllustration() {
+  return (
+    <svg viewBox="0 0 640 480" role="img" aria-label="Ilustración de libros apilados">
+      <rect x="0" y="0" width="640" height="480" rx="28" fill="none" />
+      <g opacity="0.9">
+        <path d="M108 132c10-24 38-40 68-34 16 3 30 12 38 25" stroke="rgba(29,78,216,0.28)" strokeWidth="10" strokeLinecap="round" />
+        <path d="M530 122c-10-24-38-40-68-34-16 3-30 12-38 25" stroke="rgba(16,185,129,0.22)" strokeWidth="10" strokeLinecap="round" />
+        <path d="M466 194l12 12 20-20" stroke="rgba(99,102,241,0.35)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+
+      <g transform="translate(210 98)">
+        <ellipse cx="112" cy="298" rx="180" ry="42" fill="rgba(15,23,42,0.08)" />
+
+        <g>
+          <rect x="-10" y="240" width="244" height="64" rx="18" fill="#1d4ed8" />
+          <rect x="8" y="252" width="210" height="10" rx="5" fill="rgba(255,255,255,0.7)" />
+          <rect x="8" y="270" width="160" height="10" rx="5" fill="rgba(255,255,255,0.45)" />
+        </g>
+
+        <g>
+          <rect x="6" y="190" width="256" height="58" rx="18" fill="#f59e0b" />
+          <rect x="22" y="202" width="210" height="10" rx="5" fill="rgba(255,255,255,0.72)" />
+          <rect x="22" y="220" width="146" height="10" rx="5" fill="rgba(255,255,255,0.46)" />
+        </g>
+
+        <g>
+          <rect x="-26" y="140" width="274" height="58" rx="18" fill="#10b981" />
+          <rect x="-6" y="152" width="216" height="10" rx="5" fill="rgba(255,255,255,0.72)" />
+          <rect x="-6" y="170" width="178" height="10" rx="5" fill="rgba(255,255,255,0.46)" />
+        </g>
+
+        <g>
+          <rect x="18" y="92" width="236" height="54" rx="18" fill="#a855f7" />
+          <rect x="36" y="104" width="190" height="10" rx="5" fill="rgba(255,255,255,0.72)" />
+          <rect x="36" y="122" width="124" height="10" rx="5" fill="rgba(255,255,255,0.46)" />
+        </g>
+
+        <g>
+          <rect x="-10" y="46" width="252" height="52" rx="18" fill="#ef4444" />
+          <rect x="10" y="58" width="202" height="10" rx="5" fill="rgba(255,255,255,0.72)" />
+          <rect x="10" y="76" width="150" height="10" rx="5" fill="rgba(255,255,255,0.46)" />
+        </g>
+
+        <g transform="translate(260 252)">
+          <rect x="0" y="0" width="86" height="98" rx="18" fill="#e2e8f0" stroke="rgba(15,23,42,0.12)" strokeWidth="3" />
+          <path d="M18 78c8-14 18-22 26-22s18 8 26 22" fill="none" stroke="#10b981" strokeWidth="7" strokeLinecap="round" />
+          <rect x="22" y="28" width="42" height="36" rx="18" fill="#34d399" opacity="0.35" />
+          <rect x="14" y="70" width="58" height="10" rx="5" fill="rgba(15,23,42,0.12)" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [selectedSection, setSelectedSection] = useState<Section>('catalog');
+  const [selectedSection, setSelectedSection] = useState<Section>('home');
   const [loadingData, setLoadingData] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -198,12 +290,26 @@ function App() {
   const [search, setSearch] = useState('');
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
   const [materialDetail, setMaterialDetail] = useState<any>(null);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(readInitialTheme);
   const [authForm, setAuthForm] = useState({
     email: '',
     password: '',
     fullName: '',
     institution: ''
   });
+
+  const toggleTheme = () => {
+    setThemeMode((mode) => (mode === 'dark' ? 'light' : 'dark'));
+  };
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeMode;
+    try {
+      window.localStorage.setItem('saidy_theme', themeMode);
+    } catch {
+      // ignore
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     supabase.auth.getSession().then((response) => {
@@ -330,6 +436,29 @@ function App() {
     };
   }, [session, selectedMaterialId]);
 
+  useEffect(() => {
+    if (!session) return;
+
+    const profile = portalData.profile;
+    const isAdmin = profile?.roles.some((role) => role.key === 'ADMIN') ?? false;
+    const isStaff =
+      isAdmin ||
+      profile?.roles.some((role) => role.key === 'BIBLIOTECARIO') ||
+      profile?.permissions.some((permission) => permission.key === 'dashboard:view') ||
+      false;
+    const canAccessDigital = profile?.can_access_digital ?? false;
+
+    const visibleSections = sections.filter((section) => {
+      if (section.id === 'admin') return isStaff;
+      if (section.id === 'digital') return canAccessDigital;
+      return true;
+    });
+
+    if (!visibleSections.some((section) => section.id === selectedSection)) {
+      setSelectedSection('catalog');
+    }
+  }, [session, portalData.profile, selectedSection]);
+
   const filteredMaterials = useMemo(() => {
     const value = search.trim().toLowerCase();
     if (!value) return portalData.materials;
@@ -422,9 +551,16 @@ function App() {
     }
   };
 
-  const handleLoanAction = async (loanId: string, action: 'renew' | 'return') => {
+  const handleLoanAction = async (loanId: string, action: 'renew' | 'return' | 'lost') => {
     if (!session) return;
     setError(null);
+
+    if (action === 'lost') {
+      const confirmed = window.confirm(
+        '¿Marcar este préstamo como perdido? Esto puede generar una multa y requerir revisión del bibliotecario.'
+      );
+      if (!confirmed) return;
+    }
 
     try {
       await apiFetch(`/api/circulation/loans/${loanId}/${action}`, session.access_token, { method: 'POST' });
@@ -484,119 +620,133 @@ function App() {
   }
 
   if (!session) {
-    return (
-      <div className="auth-screen auth-screen--poster">
-        <div className="auth-poster">
-          <section className="auth-pane">
-            <a href="/" className="auth-back" aria-label="Volver al inicio">
-              &larr; Home
-            </a>
+    const toggleAuthMode = () => {
+      setAuthMode((mode) => (mode === 'login' ? 'register' : 'login'));
+      setError(null);
+    };
 
-            <div className="auth-pane__header">
-              <div className="auth-pane__kicker">Saidy Library</div>
-              <h1>{authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</h1>
-              <p>
-                {authMode === 'login'
-                  ? 'Accede a tu cuenta para administrar tu catálogo y circulación.'
-                  : 'Tu cuenta se registra como estudiante. Un admin puede asignarte permisos después.'}
-              </p>
+    return (
+      <div className="auth-shell">
+        <div className="auth-box">
+          <header className="auth-box__top">
+            <div className="auth-brand">
+              <div className="auth-brand__mark">S</div>
+              <div>
+                <strong>Saidy Library</strong>
+                <span>Gestión híbrida escolar</span>
+              </div>
             </div>
 
-            {authMode === 'login' ? (
-              <form className="auth-form" onSubmit={handleLogin}>
-                <label>
-                  Correo
-                  <input
-                    type="email"
-                    value={authForm.email}
-                    onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
-                    required
-                    placeholder="tu@correo.com"
-                    autoComplete="email"
-                  />
-                </label>
-                <label>
-                  Contraseña
-                  <input
-                    type="password"
-                    value={authForm.password}
-                    onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
-                    required
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                  />
-                </label>
-                <button type="submit">Entrar</button>
-              </form>
-            ) : (
-              <form className="auth-form" onSubmit={handleRegister}>
-                <label>
-                  Nombre completo
-                  <input
-                    type="text"
-                    value={authForm.fullName}
-                    onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))}
-                    required
-                    placeholder="Tu nombre"
-                    autoComplete="name"
-                  />
-                </label>
-                <label>
-                  Correo
-                  <input
-                    type="email"
-                    value={authForm.email}
-                    onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
-                    required
-                    placeholder="tu@correo.com"
-                    autoComplete="email"
-                  />
-                </label>
-                <label>
-                  Contraseña
-                  <input
-                    type="password"
-                    minLength={6}
-                    value={authForm.password}
-                    onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
-                    required
-                    placeholder="Mínimo 6 caracteres"
-                    autoComplete="new-password"
-                  />
-                </label>
-                <label>
-                  Institución
-                  <input
-                    type="text"
-                    value={authForm.institution}
-                    onChange={(event) => setAuthForm((current) => ({ ...current, institution: event.target.value }))}
-                    placeholder="Opcional"
-                    autoComplete="organization"
-                  />
-                </label>
-                <button type="submit">Crear cuenta</button>
-              </form>
-            )}
-
-            {error ? <p className="form-feedback">{error}</p> : null}
-          </section>
-
-          <aside className="auth-splash">
-            <div className="auth-splash__content">
-              <div className="auth-splash__kicker">Portal Saidy</div>
-              <h2>{authMode === 'login' ? 'Hola' : 'Get started'}</h2>
-              <p>
-                {authMode === 'login' ? '¿No tienes una cuenta todavía?' : '¿Ya tienes una cuenta?'}
-              </p>
+            <div className="auth-box__actions">
               <button
                 type="button"
-                className="auth-splash__button"
-                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                className="theme-toggle"
+                onClick={toggleTheme}
+                aria-label={themeMode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
               >
-                {authMode === 'login' ? 'Crear cuenta' : 'Iniciar sesión'}
+                <ThemeIcon mode={themeMode} />
               </button>
+
+              <div className="auth-switch">
+                <span>{authMode === 'login' ? '¿No tienes una cuenta?' : '¿Ya tienes una cuenta?'}</span>
+                <button type="button" className="auth-switch__button" onClick={toggleAuthMode}>
+                  {authMode === 'login' ? 'Registrarse' : 'Entrar'}
+                </button>
+              </div>
             </div>
-          </aside>
+          </header>
+
+          <div className="auth-box__body">
+            <section className="auth-box__form">
+              <h1>{authMode === 'login' ? 'Log in' : 'Sign up'}</h1>
+
+              {authMode === 'login' ? (
+                <form className="auth-form auth-form--boxed" onSubmit={handleLogin}>
+                  <label>
+                    Correo
+                    <input
+                      type="email"
+                      value={authForm.email}
+                      onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
+                      required
+                      placeholder="Enter your email address"
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label>
+                    Contraseña
+                    <input
+                      type="password"
+                      value={authForm.password}
+                      onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
+                      required
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                    />
+                  </label>
+                  <button type="submit" className="auth-submit">
+                    Entrar
+                  </button>
+                </form>
+              ) : (
+                <form className="auth-form auth-form--boxed" onSubmit={handleRegister}>
+                  <label>
+                    Nombre completo
+                    <input
+                      type="text"
+                      value={authForm.fullName}
+                      onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))}
+                      required
+                      placeholder="Enter your full name"
+                      autoComplete="name"
+                    />
+                  </label>
+                  <label>
+                    Correo
+                    <input
+                      type="email"
+                      value={authForm.email}
+                      onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
+                      required
+                      placeholder="Enter your email address"
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label>
+                    Contraseña
+                    <input
+                      type="password"
+                      minLength={6}
+                      value={authForm.password}
+                      onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
+                      required
+                      placeholder="Minimum 6 characters"
+                      autoComplete="new-password"
+                    />
+                  </label>
+                  <label>
+                    Institución
+                    <input
+                      type="text"
+                      value={authForm.institution}
+                      onChange={(event) => setAuthForm((current) => ({ ...current, institution: event.target.value }))}
+                      placeholder="Optional"
+                      autoComplete="organization"
+                    />
+                  </label>
+                  <button type="submit" className="auth-submit">
+                    Crear cuenta
+                  </button>
+                </form>
+              )}
+
+              {error ? <p className="form-feedback">{error}</p> : null}
+            </section>
+
+            <aside className="auth-box__art" aria-hidden="true">
+              <BooksIllustration />
+            </aside>
+          </div>
         </div>
       </div>
     );
@@ -611,9 +761,17 @@ function App() {
     profile?.roles.some((role) => role.key === 'BIBLIOTECARIO') ||
     profile?.permissions.some((permission) => permission.key === 'dashboard:view') ||
     false;
+  const visibleSections = sections.filter((section) => {
+    if (section.id === 'admin') return isStaff;
+    if (section.id === 'digital') return profile?.can_access_digital ?? false;
+    return true;
+  });
   const roleSummary = profile?.roles.map((role) => roleLabel[role.key]).join(' · ') || 'Miembro';
   const permissionSummary = profile?.permissions.length ?? 0;
   const summary = toSummary(filteredMaterials);
+  const catalogSummary = toSummary(portalData.materials);
+  const featuredMaterials = portalData.materials.slice(0, 6);
+  const featuredAssets = portalData.digitalAssets.slice(0, 4);
 
   return (
     <div className="portal-shell">
@@ -628,7 +786,7 @@ function App() {
           </div>
 
           <nav className="section-nav">
-            {sections.map((section) => (
+            {visibleSections.map((section) => (
               <button
                 key={section.id}
                 type="button"
@@ -642,9 +800,15 @@ function App() {
           </nav>
         </div>
 
-        <button type="button" className="ghost-button" onClick={handleLogout}>
-          Cerrar sesión
-        </button>
+        <div className="sidebar__footer">
+          <button type="button" className="ghost-button ghost-button--icon" onClick={toggleTheme}>
+            <ThemeIcon mode={themeMode} />
+            {themeMode === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+          </button>
+          <button type="button" className="ghost-button" onClick={handleLogout}>
+            Cerrar sesión
+          </button>
+        </div>
       </aside>
 
       <main className="workspace">
@@ -691,6 +855,130 @@ function App() {
         </section>
 
         {loadingData ? <div className="page-banner">Sincronizando datos con Supabase...</div> : null}
+
+        {selectedSection === 'home' ? (
+          <section className="content-grid">
+            <div className="panel">
+              <div className="panel__header">
+                <div>
+                  <span className="panel__eyebrow">Inicio</span>
+                  <h2>Encuentra tu próximo material</h2>
+                </div>
+                <button type="button" className="secondary" onClick={() => setSelectedSection('catalog')}>
+                  Abrir catálogo
+                </button>
+              </div>
+
+              <input
+                className="search-input search-input--hero"
+                type="search"
+                placeholder="Buscar por título, ISBN, DOI o palabra clave"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+
+              <div className="summary-strip">
+                {catalogSummary.map((item) => (
+                  <article key={item.kind}>
+                    <strong>{item.count}</strong>
+                    <span>{item.kind.replaceAll('_', ' ')}</span>
+                  </article>
+                ))}
+              </div>
+
+              <div className="cover-grid">
+                {featuredMaterials.map((material) => (
+                  <button
+                    key={material.id}
+                    type="button"
+                    className="cover-card"
+                    onClick={() => {
+                      setSelectedMaterialId(material.id);
+                      setSelectedSection('catalog');
+                    }}
+                  >
+                    <div className="cover-card__cover">
+                      {material.cover_url ? <img src={material.cover_url} alt={material.title} /> : <span>{material.kind}</span>}
+                    </div>
+                    <div className="cover-card__meta">
+                      <strong>{material.title}</strong>
+                      <small>{material.publisher || 'Sin editorial'} · {material.publication_year || 'N/A'}</small>
+                    </div>
+                  </button>
+                ))}
+                {featuredMaterials.length === 0 ? <div className="empty-state">Aún no hay materiales para mostrar.</div> : null}
+              </div>
+            </div>
+
+            <div className="home-side">
+              <div className="panel">
+                <div className="panel__header">
+                  <div>
+                    <span className="panel__eyebrow">Accesos rápidos</span>
+                    <h2>Tu panel</h2>
+                  </div>
+                </div>
+
+                <div className="shortcut-grid">
+                  <button type="button" className="shortcut-card" onClick={() => setSelectedSection('catalog')}>
+                    <strong>Catálogo</strong>
+                    <span>Buscar y reservar</span>
+                  </button>
+                  <button type="button" className="shortcut-card" onClick={() => setSelectedSection('circulation')}>
+                    <strong>Préstamos y reservas</strong>
+                    <span>Gestiona tus movimientos</span>
+                  </button>
+                  {profile?.can_access_digital ? (
+                    <button type="button" className="shortcut-card" onClick={() => setSelectedSection('digital')}>
+                      <strong>Biblioteca digital</strong>
+                      <span>Accesos y recursos</span>
+                    </button>
+                  ) : (
+                    <div className="shortcut-card is-disabled">
+                      <strong>Biblioteca digital</strong>
+                      <span>Acceso bloqueado</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {profile?.can_access_digital ? (
+                <div className="panel">
+                  <div className="panel__header">
+                    <div>
+                      <span className="panel__eyebrow">Digital</span>
+                      <h2>Destacados</h2>
+                    </div>
+                  </div>
+
+                  <div className="asset-grid asset-grid--compact">
+                    {featuredAssets.map((asset) => (
+                      <article key={asset.id} className="asset-card">
+                        <div className="asset-card__cover">
+                          {asset.materials.cover_url ? (
+                            <img src={asset.materials.cover_url} alt={asset.materials.title} />
+                          ) : (
+                            <span>{asset.asset_type}</span>
+                          )}
+                        </div>
+                        <div className="asset-card__meta">
+                          <strong>{asset.materials.title}</strong>
+                          <span>
+                            {asset.asset_type} · expira {formatDate(asset.expires_at)}
+                          </span>
+                          <a href={asset.access_url} target="_blank" rel="noreferrer">
+                            Abrir acceso
+                          </a>
+                        </div>
+                      </article>
+                    ))}
+                    {featuredAssets.length === 0 ? <div className="empty-state">No hay recursos digitales.</div> : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         {selectedSection === 'catalog' ? (
           <section className="content-grid">
@@ -803,7 +1091,7 @@ function App() {
               <div className="panel__header">
                 <div>
                   <span className="panel__eyebrow">Préstamos</span>
-                  <h2>Actividad reciente</h2>
+                  <h2>Tus libros prestados</h2>
                 </div>
               </div>
 
@@ -815,12 +1103,21 @@ function App() {
                       {loan.status} · vence {formatDate(loan.due_at)}
                     </span>
                     <div className="badge-row">
-                      <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'renew')}>
-                        Renovar
-                      </button>
-                      <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'return')}>
-                        Devolver
-                      </button>
+                      {loan.status === 'active' ? (
+                        <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'renew')}>
+                          Renovar
+                        </button>
+                      ) : null}
+                      {loan.status === 'active' || loan.status === 'overdue' ? (
+                        <>
+                          <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'return')}>
+                            Devolver
+                          </button>
+                          <button type="button" className="badge badge--danger" onClick={() => handleLoanAction(loan.id, 'lost')}>
+                            Marcar como perdido
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                   </article>
                 ))}
@@ -832,7 +1129,7 @@ function App() {
               <div className="panel__header">
                 <div>
                   <span className="panel__eyebrow">Reservas</span>
-                  <h2>Cola actual</h2>
+                  <h2>Libros reservados</h2>
                 </div>
               </div>
 
@@ -841,7 +1138,7 @@ function App() {
                   <article key={reservation.id}>
                     <strong>{reservation.materials.title}</strong>
                     <span>
-                      {reservation.status} · posición {reservation.queue_position}
+                      {reservation.status} · reservado {formatDate(reservation.reserved_at)} · posición {reservation.queue_position}
                     </span>
                     <button type="button" className="badge" onClick={() => handleCancelReservation(reservation.id)}>
                       Cancelar
@@ -892,16 +1189,25 @@ function App() {
                 </div>
               </div>
 
-              <div className="mini-list">
+              <div className="asset-grid">
                 {portalData.digitalAssets.map((asset) => (
-                  <article key={asset.id}>
-                    <strong>{asset.materials.title}</strong>
-                    <span>
-                      {asset.asset_type} · expira {formatDate(asset.expires_at)}
-                    </span>
-                    <a href={asset.access_url} target="_blank" rel="noreferrer">
-                      Abrir acceso
-                    </a>
+                  <article key={asset.id} className="asset-card">
+                    <div className="asset-card__cover">
+                      {asset.materials.cover_url ? (
+                        <img src={asset.materials.cover_url} alt={asset.materials.title} />
+                      ) : (
+                        <span>{asset.asset_type}</span>
+                      )}
+                    </div>
+                    <div className="asset-card__meta">
+                      <strong>{asset.materials.title}</strong>
+                      <span>
+                        {asset.asset_type} · expira {formatDate(asset.expires_at)}
+                      </span>
+                      <a href={asset.access_url} target="_blank" rel="noreferrer">
+                        Abrir acceso
+                      </a>
+                    </div>
                   </article>
                 ))}
                 {portalData.digitalAssets.length === 0 ? <div className="empty-state">No hay recursos digitales cargados.</div> : null}
@@ -972,19 +1278,23 @@ function App() {
               ) : null}
             </div>
 
-            <AdminRbacPanel
-              token={session.access_token}
-              roleKeys={profile?.roles.map((role) => role.key) ?? []}
-              permissions={profile?.permissions.map((permission) => permission.key) ?? []}
-            />
+            {isStaff ? (
+              <>
+                <AdminRbacPanel
+                  token={session.access_token}
+                  roleKeys={profile?.roles.map((role) => role.key) ?? []}
+                  permissions={profile?.permissions.map((permission) => permission.key) ?? []}
+                />
 
-            <LibraryOperationsPanel
-              token={session.access_token}
-              roleKeys={profile?.roles.map((role) => role.key) ?? []}
-              permissions={profile?.permissions.map((permission) => permission.key) ?? []}
-              onChanged={handleRefreshProfile}
-              onUnauthorized={handleUnauthorized}
-            />
+                <LibraryOperationsPanel
+                  token={session.access_token}
+                  roleKeys={profile?.roles.map((role) => role.key) ?? []}
+                  permissions={profile?.permissions.map((permission) => permission.key) ?? []}
+                  onChanged={handleRefreshProfile}
+                  onUnauthorized={handleUnauthorized}
+                />
+              </>
+            ) : null}
           </section>
         ) : null}
       </main>

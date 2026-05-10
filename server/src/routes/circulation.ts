@@ -535,6 +535,65 @@ circulationRouter.post('/loans/:id/return', requireAuth, async (req: AuthedReque
   return res.json({ loan: returnedLoan, overdueDays });
 });
 
+circulationRouter.post('/loans/:id/lost', requireAuth, async (req: AuthedRequest, res) => {
+  const { data: loan, error: loanError } = await supabaseAdmin
+    .from('loans')
+    .select('*, material_copies(id,status)')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (loanError) {
+    return sendError(res, 500, 'Unable to load loan', loanError.message);
+  }
+
+  if (!loan) {
+    return sendError(res, 404, 'Loan not found');
+  }
+
+  const canReturnAny = hasAnyPermission(req.auth?.permissions ?? [], 'loans:return:any');
+  const canReturnOwn = hasAnyPermission(req.auth?.permissions ?? [], 'loans:return:own');
+  if (loan.user_id !== req.auth!.userId && !canReturnAny) {
+    return sendError(res, 403, 'You can only report your own loans as lost');
+  }
+
+  if (loan.user_id === req.auth!.userId && !canReturnOwn && !canReturnAny) {
+    return sendError(res, 403, 'Insufficient permissions');
+  }
+
+  if (!['active', 'overdue'].includes(loan.status)) {
+    return sendError(res, 409, 'Only active loans can be marked as lost');
+  }
+
+  const now = new Date().toISOString();
+  const { data: lostLoan, error: lostError } = await supabaseAdmin
+    .from('loans')
+    .update({ status: 'lost', updated_at: now })
+    .eq('id', loan.id)
+    .select('*')
+    .single();
+
+  if (lostError) {
+    return sendError(res, 500, 'Unable to mark loan as lost', lostError.message);
+  }
+
+  if (loan.copy_id) {
+    await supabaseAdmin
+      .from('material_copies')
+      .update({ status: 'lost', updated_at: now })
+      .eq('id', loan.copy_id);
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'circulation.loan.lost',
+    entityType: 'loan',
+    entityId: lostLoan.id,
+    metadata: { loan_user_id: loan.user_id }
+  });
+
+  return res.json({ loan: lostLoan });
+});
+
 circulationRouter.post('/reservations', requireAuth, requireAnyPermission('reservations:create'), async (req: AuthedRequest, res) => {
   const parsed = reservationSchema.safeParse(req.body);
   if (!parsed.success) {

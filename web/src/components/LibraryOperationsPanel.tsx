@@ -7,6 +7,8 @@ type PermissionProps = {
   roleKeys: string[];
   onChanged: () => void;
   onUnauthorized: () => void;
+  activeSection?: 'catalog' | 'circulation' | 'admin';
+  showTabs?: boolean;
 };
 
 type MaterialOption = {
@@ -96,7 +98,15 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat('es-BO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged, onUnauthorized }: PermissionProps) {
+export function LibraryOperationsPanel({
+  token,
+  permissions,
+  roleKeys,
+  onChanged,
+  onUnauthorized,
+  activeSection,
+  showTabs = true
+}: PermissionProps) {
   const canManageCatalog = hasPermission(permissions, roleKeys, 'catalog:create', 'catalog:update', 'catalog:delete');
   const canReadCirculation = hasPermission(permissions, roleKeys, 'circulation:read:any', 'circulation:read:own');
   const canManageLoans = hasPermission(permissions, roleKeys, 'loans:create:physical', 'loans:create:digital', 'loans:return:any');
@@ -105,7 +115,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
   const canManageNotifications = hasPermission(permissions, roleKeys, 'notifications:manage');
   const canReadUsers = hasPermission(permissions, roleKeys, 'users:read');
 
-  const [activeTab, setActiveTab] = useState<'catalog' | 'circulation' | 'admin'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'circulation' | 'admin'>(activeSection ?? 'catalog');
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [copies, setCopies] = useState<CopyOption[]>([]);
   const [users, setUsers] = useState<AdminUserOption[]>([]);
@@ -192,6 +202,12 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
     () => copies.filter((copy) => copy.material_id === loanForm.material_id && copy.status === 'available'),
     [copies, loanForm.material_id]
   );
+
+  useEffect(() => {
+    if (activeSection) {
+      setActiveTab(activeSection);
+    }
+  }, [activeSection]);
 
   const refresh = () => {
     setRefreshTick((value) => value + 1);
@@ -444,13 +460,13 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
   }
 
   return (
-    <section className="admin-rbac library-ops">
+    <section className={showTabs ? 'admin-rbac library-ops' : 'admin-rbac library-ops library-ops--embedded'}>
       <div className="panel__header">
         <div>
           <span className="panel__eyebrow">Operación</span>
           <h2>Catálogo, circulación y administración bibliotecaria</h2>
         </div>
-        <div className="admin-rbac__tabs">
+        {showTabs ? <div className="admin-rbac__tabs">
           <button type="button" className={activeTab === 'catalog' ? 'is-active' : ''} onClick={() => setActiveTab('catalog')}>
             Catálogo
           </button>
@@ -460,7 +476,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
           <button type="button" className={activeTab === 'admin' ? 'is-active' : ''} onClick={() => setActiveTab('admin')}>
             Gestión
           </button>
-        </div>
+        </div> : null}
       </div>
 
       {loading ? <div className="empty-state">Cargando módulos operativos...</div> : null}
@@ -476,7 +492,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
                 <h3>Alta bibliográfica</h3>
               </div>
             </div>
-            <form className="auth-form" onSubmit={handleCreateMaterial}>
+            <form className="auth-form crud-form crud-form--catalog" onSubmit={handleCreateMaterial}>
               <label>Título<input value={materialForm.title} onChange={(event) => setMaterialForm((current) => ({ ...current, title: event.target.value }))} required /></label>
               <label>Tipo<select value={materialForm.kind} onChange={(event) => setMaterialForm((current) => ({ ...current, kind: event.target.value }))}>{materialKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select></label>
               <label>Autores<input value={materialForm.contributors} onChange={(event) => setMaterialForm((current) => ({ ...current, contributors: event.target.value }))} placeholder="Autor 1, Autor 2" /></label>
@@ -501,7 +517,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
                 <h3>Copias e inventario base</h3>
               </div>
             </div>
-            <form className="auth-form inline-form" onSubmit={handleCreateCopy}>
+            <form className="auth-form crud-form crud-form--copy" onSubmit={handleCreateCopy}>
               <label>Material<select value={selectedMaterialId} onChange={(event) => setSelectedMaterialId(event.target.value)}>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></label>
               <label>Código<input value={copyForm.copy_code} onChange={(event) => setCopyForm((current) => ({ ...current, copy_code: event.target.value }))} /></label>
               <label>Barcode<input value={copyForm.barcode} onChange={(event) => setCopyForm((current) => ({ ...current, barcode: event.target.value }))} /></label>
@@ -538,7 +554,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
           {canManageLoans ? (
             <article className="panel editor-card">
               <div className="panel__header"><div><span className="panel__eyebrow">Préstamo</span><h3>Registrar circulación</h3></div></div>
-              <form className="auth-form" onSubmit={handleCreateLoan}>
+              <form className="auth-form crud-form" onSubmit={handleCreateLoan}>
                 <label>Usuario<select value={loanForm.user_id} onChange={(event) => setLoanForm((current) => ({ ...current, user_id: event.target.value }))}><option value="">Yo / sesión activa</option>{users.map((user) => <option key={user.id} value={user.id}>{user.full_name} · {user.email}</option>)}</select></label>
                 <label>Material<select value={loanForm.material_id} onChange={(event) => setLoanForm((current) => ({ ...current, material_id: event.target.value, copy_id: '' }))}>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></label>
                 <label>Tipo<select value={loanForm.loan_type} onChange={(event) => setLoanForm((current) => ({ ...current, loan_type: event.target.value }))}><option value="physical">Físico</option><option value="digital">Digital</option></select></label>
@@ -551,15 +567,15 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
           <article className="panel panel--wide">
             <div className="panel__header"><div><span className="panel__eyebrow">Historial</span><h3>Préstamos, reservas y multas</h3></div></div>
             <div className="admin-grid">
-              <div className="mini-list">
+              <div className="mini-list mini-list--wide">
                 <strong>Préstamos</strong>
                 {loans.map((loan) => <article key={loan.id}><strong>{loan.materials?.title || loan.id}</strong><span>{loan.status} · vence {formatDate(loan.due_at)}</span><div className="badge-row"><button type="button" className="badge" onClick={() => runAction(`renew-${loan.id}`, async () => { await apiFetch(`/api/circulation/loans/${loan.id}/renew`, token, { method: 'POST' }); })}>Renovar</button><button type="button" className="badge" onClick={() => runAction(`return-${loan.id}`, async () => { await apiFetch(`/api/circulation/loans/${loan.id}/return`, token, { method: 'POST' }); })}>Devolver</button></div></article>)}
               </div>
-              <div className="mini-list">
+              <div className="mini-list mini-list--wide">
                 <strong>Reservas</strong>
                 {reservations.map((reservation) => <article key={reservation.id}><strong>{reservation.materials?.title || reservation.id}</strong><span>{reservation.status}</span><button type="button" className="badge" onClick={() => runAction(`reservation-${reservation.id}`, async () => { await apiFetch(`/api/circulation/reservations/${reservation.id}/cancel`, token, { method: 'POST' }); })}>Cancelar</button></article>)}
               </div>
-              <div className="mini-list">
+              <div className="mini-list mini-list--wide">
                 <strong>Multas</strong>
                 {fines.map((fine) => <article key={fine.id}><strong>{fine.amount} {fine.currency}</strong><span>{fine.status} · {fine.reason || 'Sin detalle'}</span><button type="button" className="badge" onClick={() => runAction(`fine-${fine.id}`, async () => { await apiFetch(`/api/circulation/fines/${fine.id}/pay`, token, { method: 'POST' }); })}>Marcar pagada</button></article>)}
               </div>
@@ -573,7 +589,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
           {canManageInventory ? (
             <article className="panel editor-card">
               <div className="panel__header"><div><span className="panel__eyebrow">Inventario</span><h3>Auditoría física</h3></div></div>
-              <form className="auth-form" onSubmit={handleCreateInventory}>
+              <form className="auth-form crud-form" onSubmit={handleCreateInventory}>
                 <label>Material<select value={inventoryForm.material_id} onChange={(event) => setInventoryForm((current) => ({ ...current, material_id: event.target.value }))}>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></label>
                 <label>Copia<select value={inventoryForm.copy_id} onChange={(event) => setInventoryForm((current) => ({ ...current, copy_id: event.target.value }))}><option value="">Sin copia específica</option>{copies.map((copy) => <option key={copy.id} value={copy.id}>{copy.copy_code || copy.barcode || copy.id}</option>)}</select></label>
                 <label>Ubicación<input value={inventoryForm.location} onChange={(event) => setInventoryForm((current) => ({ ...current, location: event.target.value }))} /></label>
@@ -589,7 +605,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
             <div className="panel__header"><div><span className="panel__eyebrow">Gestión</span><h3>Adquisiciones, interbiblioteca, avisos y analítica</h3></div></div>
             <div className="admin-grid">
               {canManageReports ? (
-                <form className="auth-form info-card" onSubmit={handleCreateAcquisition}>
+                <form className="auth-form info-card crud-form" onSubmit={handleCreateAcquisition}>
                   <strong>Solicitud de adquisición</strong>
                   <input placeholder="Título" value={acquisitionForm.title} onChange={(event) => setAcquisitionForm((current) => ({ ...current, title: event.target.value }))} required />
                   <select value={acquisitionForm.kind} onChange={(event) => setAcquisitionForm((current) => ({ ...current, kind: event.target.value }))}>{materialKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select>
@@ -600,7 +616,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
                 </form>
               ) : null}
               {canManageReports ? (
-                <form className="auth-form info-card" onSubmit={handleCreateInterlibrary}>
+                <form className="auth-form info-card crud-form" onSubmit={handleCreateInterlibrary}>
                   <strong>Préstamo interbibliotecario</strong>
                   <input placeholder="Material solicitado" value={interlibraryForm.material_title} onChange={(event) => setInterlibraryForm((current) => ({ ...current, material_title: event.target.value }))} required />
                   <input placeholder="Biblioteca externa" value={interlibraryForm.external_library} onChange={(event) => setInterlibraryForm((current) => ({ ...current, external_library: event.target.value }))} />
@@ -609,7 +625,7 @@ export function LibraryOperationsPanel({ token, permissions, roleKeys, onChanged
                 </form>
               ) : null}
               {canManageNotifications ? (
-                <form className="auth-form info-card" onSubmit={handleCreateNotification}>
+                <form className="auth-form info-card crud-form" onSubmit={handleCreateNotification}>
                   <strong>Notificación interna</strong>
                   <select value={notificationForm.user_id} onChange={(event) => setNotificationForm((current) => ({ ...current, user_id: event.target.value }))}><option value="">General</option>{users.map((user) => <option key={user.id} value={user.id}>{user.full_name}</option>)}</select>
                   <input placeholder="Título" value={notificationForm.title} onChange={(event) => setNotificationForm((current) => ({ ...current, title: event.target.value }))} required />

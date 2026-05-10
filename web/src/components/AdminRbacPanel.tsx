@@ -57,6 +57,8 @@ type AdminRbacPanelProps = {
   token: string;
   roleKeys: string[];
   permissions: string[];
+  activeSection?: 'users' | 'roles' | 'permissions' | 'audit';
+  showTabs?: boolean;
 };
 
 type UserFormState = {
@@ -101,7 +103,13 @@ async function maybeFetch<T>(enabled: boolean, path: string, token: string): Pro
   return apiFetch<T>(path, token);
 }
 
-export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelProps) {
+export function AdminRbacPanel({
+  token,
+  roleKeys,
+  permissions,
+  activeSection,
+  showTabs = true
+}: AdminRbacPanelProps) {
   const permissionSet = new Set(permissions);
   const isAdmin = roleKeys.includes('ADMIN');
   const canReadUsers = isAdmin || permissionSet.has('users:read');
@@ -120,7 +128,7 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'permissions' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'permissions' | 'audit'>(activeSection ?? 'users');
   const [userRoleDrafts, setUserRoleDrafts] = useState<Record<string, string[]>>({});
   const [rolePermissionDrafts, setRolePermissionDrafts] = useState<Record<string, string[]>>({});
 
@@ -143,6 +151,12 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
     name: '',
     description: ''
   });
+
+  useEffect(() => {
+    if (activeSection) {
+      setActiveTab(activeSection);
+    }
+  }, [activeSection]);
 
   useEffect(() => {
     let active = true;
@@ -369,7 +383,7 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
           <span className="panel__eyebrow">RBAC</span>
           <h2>Administración de usuarios, roles y permisos</h2>
         </div>
-        <div className="admin-rbac__tabs">
+        {showTabs ? <div className="admin-rbac__tabs">
           <button type="button" className={activeTab === 'users' ? 'is-active' : ''} onClick={() => setActiveTab('users')}>
             Usuarios
           </button>
@@ -386,7 +400,7 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
           <button type="button" className={activeTab === 'audit' ? 'is-active' : ''} onClick={() => setActiveTab('audit')}>
             Auditoría
           </button>
-        </div>
+        </div> : null}
       </div>
 
       {loading ? <div className="empty-state">Cargando administración RBAC...</div> : null}
@@ -411,7 +425,7 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
                 </div>
 
                 {canCreateUsers ? (
-                  <form className="auth-form" onSubmit={handleCreateUser}>
+                  <form className="auth-form crud-form crud-form--admin" onSubmit={handleCreateUser}>
                     <label>
                       Correo
                       <input
@@ -497,18 +511,24 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
                 ) : users.length === 0 ? (
                   <div className="empty-state">No hay usuarios para administrar.</div>
                 ) : (
-                  <div className="admin-list">
+                  <div className="admin-list admin-list--table">
+                    <div className="admin-table-head">
+                      <span>Usuario</span>
+                      <span>Roles activos</span>
+                      <span>Asignacion de roles</span>
+                      <span>Accion</span>
+                    </div>
                     {users.map((user) => {
                       const draftRoles = userRoleDrafts[user.id] ?? user.roles.map((role) => role.key);
                       return (
-                        <article key={user.id} className="admin-row">
-                          <div>
+                        <article key={user.id} className="admin-row admin-row--table">
+                          <div className="admin-row__summary">
                             <strong>{user.full_name}</strong>
                             <p>{user.email}</p>
                             <small>
                               {user.member_type} · {user.permissions.length} permisos efectivos · {user.roles.length} roles
                             </small>
-                            <div className="badge-row">
+                            <div className="badge-row badge-row--roles">
                               {user.roles.map((role) => (
                                 <span key={role.id} className="badge">
                                   {role.name}
@@ -518,8 +538,8 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
                           </div>
 
                           {canAssignRoles ? (
-                            <div className="admin-row__controls">
-                              <div className="choice-grid">
+                            <div className="admin-row__controls admin-row__controls--table">
+                              <div className="choice-grid choice-grid--role-table">
                                 {roles.map((role) => {
                                   const checked = draftRoles.includes(role.key);
                                   return (
@@ -569,7 +589,7 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
                 </div>
 
                 {canManageRoles ? (
-                  <form className="auth-form" onSubmit={handleCreateRole}>
+                  <form className="auth-form crud-form crud-form--admin" onSubmit={handleCreateRole}>
                     <label>
                       Clave
                       <input
@@ -696,7 +716,7 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
                 </div>
 
                 {canManagePermissions ? (
-                  <form className="auth-form" onSubmit={handleCreatePermission}>
+                  <form className="auth-form crud-form crud-form--admin" onSubmit={handleCreatePermission}>
                     <label>
                       Clave
                       <input

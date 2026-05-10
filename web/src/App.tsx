@@ -2,131 +2,33 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase.js';
 import { ApiError, apiFetch } from './lib/api.js';
+import type {
+  AdminDashboard,
+  DigitalAsset,
+  Fine,
+  Loan,
+  Material,
+  Overview,
+  PortalData,
+  Profile,
+  Reservation,
+  RoleKey,
+  SectionId,
+  ThemeMode
+} from './lib/domain.js';
+import { formatDate, formatMoney } from './lib/format.js';
+import { applyTheme, persistTheme, readInitialTheme } from './lib/theme.js';
+import { PortalShell, type NavItem } from './components/PortalShell.js';
 import { AdminRbacPanel } from './components/AdminRbacPanel.js';
 import { LibraryOperationsPanel } from './components/LibraryOperationsPanel.js';
+import { AuthPage, type AuthFormState, type AuthMode } from './pages/AuthPage.js';
+import { PortalHomePage } from './pages/PortalHomePage.js';
+import { PortalCatalogPage, type CatalogFilters } from './pages/PortalCatalogPage.js';
+import { PortalMyLibraryPage } from './pages/PortalMyLibraryPage.js';
+import { PortalDigitalPage } from './pages/PortalDigitalPage.js';
+import { PortalReportsPage } from './pages/PortalReportsPage.js';
 
-type Section = 'home' | 'catalog' | 'circulation' | 'digital' | 'admin';
-
-type ThemeMode = 'light' | 'dark';
-
-type RoleKey = 'ADMIN' | 'BIBLIOTECARIO' | 'DOCENTE' | 'INVESTIGADOR' | 'ESTUDIANTE';
-
-type Role = {
-  id: string;
-  key: RoleKey;
-  name: string;
-  description: string | null;
-};
-
-type Permission = {
-  id: string;
-  key: string;
-  name: string;
-  description: string | null;
-};
-
-type Profile = {
-  id: string;
-  email: string;
-  full_name: string;
-  member_type: 'public' | 'student' | 'teacher' | 'researcher' | 'staff';
-  blocked_until: string | null;
-  can_access_digital: boolean;
-  loan_limit: number;
-  reservation_limit: number;
-  institution: string | null;
-  department: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  phone: string | null;
-  preferred_language: string;
-  roles: Role[];
-  permissions: Permission[];
-};
-
-type Material = {
-  id: string;
-  kind: string;
-  title: string;
-  subtitle: string | null;
-  summary: string | null;
-  publisher: string | null;
-  publication_year: number | null;
-  language: string | null;
-  isbn: string | null;
-  doi: string | null;
-  cover_url: string | null;
-  digital_url: string | null;
-  keywords: string[] | null;
-  created_at: string;
-};
-
-type Overview = {
-  materials: number;
-  copies: number;
-  loans: number;
-  reservations: number;
-};
-
-type Loan = {
-  id: string;
-  status: string;
-  borrowed_at: string;
-  due_at: string;
-  returned_at: string | null;
-  materials: { id: string; title: string; kind: string; cover_url: string | null };
-  material_copies: { id: string; barcode: string | null; copy_code: string | null; status: string; location: string | null } | null;
-};
-
-type Reservation = {
-  id: string;
-  status: string;
-  reserved_at: string;
-  queue_position: number;
-  materials: { id: string; title: string; kind: string; cover_url: string | null };
-};
-
-type Fine = {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  reason: string | null;
-  issued_at: string;
-  due_at: string | null;
-  paid_at: string | null;
-  loans: { id: string; material_id: string | null; status: string; due_at: string } | null;
-};
-
-type DigitalAsset = {
-  id: string;
-  access_url: string;
-  expires_at: string | null;
-  asset_type: string;
-  materials: { id: string; title: string; kind: string; cover_url: string | null };
-};
-
-type AdminDashboard = {
-  materials: number;
-  loans: number;
-  reservations: number;
-  fines: number;
-  inventory: number;
-  acquisitions: number;
-  interlibrary: number;
-  notifications: number;
-};
-
-type PortalData = {
-  profile: Profile | null;
-  overview: Overview | null;
-  materials: Material[];
-  loans: Loan[];
-  reservations: Reservation[];
-  fines: Fine[];
-  digitalAssets: DigitalAsset[];
-  dashboard: AdminDashboard | null;
-};
+type SummaryItem = { kind: string; count: number };
 
 const emptyData: PortalData = {
   profile: null,
@@ -139,13 +41,12 @@ const emptyData: PortalData = {
   dashboard: null
 };
 
-const sections: Array<{ id: Section; label: string; description: string }> = [
-  { id: 'home', label: 'Inicio', description: 'Búsqueda, destacados y atajos' },
-  { id: 'catalog', label: 'Catálogo', description: 'Buscar y reservar materiales' },
-  { id: 'circulation', label: 'Circulación', description: 'Préstamos, renovaciones y multas' },
-  { id: 'digital', label: 'Digital', description: 'Acceso a materiales digitales' },
-  { id: 'admin', label: 'Administración', description: 'Inventario, adquisiciones y analítica' }
-];
+const defaultCatalogFilters: CatalogFilters = {
+  kind: '',
+  language: '',
+  yearFrom: '',
+  yearTo: ''
+};
 
 const roleLabel: Record<RoleKey, string> = {
   ADMIN: 'Administrador',
@@ -163,20 +64,19 @@ const memberLabel: Record<Profile['member_type'], string> = {
   staff: 'Personal'
 };
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'N/A';
-  return new Intl.DateTimeFormat('es-BO', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
-}
+type PortalSection = {
+  id: SectionId;
+  label: string;
+  description: string;
+};
 
-function formatMoney(value: number, currency = 'BOB') {
-  return new Intl.NumberFormat('es-BO', {
-    style: 'currency',
-    currency
-  }).format(value);
-}
+const sections: PortalSection[] = [
+  { id: 'home', label: 'Inicio', description: 'Resumen general del portal' },
+  { id: 'catalog', label: 'Catálogo', description: 'Explorar materiales disponibles' },
+  { id: 'circulation', label: 'Circulación', description: 'Préstamos, reservas y multas' },
+  { id: 'digital', label: 'Digital', description: 'Accesos digitales y recursos' },
+  { id: 'admin', label: 'Administración', description: 'RBAC y operaciones del sistema' }
+];
 
 function toSummary(materials: Material[]) {
   const counts = new Map<string, number>();
@@ -187,19 +87,6 @@ function toSummary(materials: Material[]) {
     .sort((a, b) => b[1] - a[1])
     .map(([kind, count]) => ({ kind, count }))
     .slice(0, 4);
-}
-
-function readInitialTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'light';
-
-  const stored = window.localStorage.getItem('saidy_theme');
-  if (stored === 'light' || stored === 'dark') return stored;
-
-  if (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) {
-    return 'dark';
-  }
-
-  return 'light';
 }
 
 function ThemeIcon({ mode }: { mode: ThemeMode }) {
@@ -282,7 +169,7 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [selectedSection, setSelectedSection] = useState<Section>('home');
+  const [selectedSection, setSelectedSection] = useState<SectionId>('home');
   const [loadingData, setLoadingData] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -303,12 +190,12 @@ function App() {
   };
 
   useEffect(() => {
-    document.documentElement.dataset.theme = themeMode;
     try {
-      window.localStorage.setItem('saidy_theme', themeMode);
+      persistTheme(themeMode);
     } catch {
       // ignore
     }
+    applyTheme(themeMode);
   }, [themeMode]);
 
   useEffect(() => {

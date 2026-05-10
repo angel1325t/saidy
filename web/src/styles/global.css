@@ -476,10 +476,157 @@ button.secondary,
   width: 100%;
 }
 
+.admin-rbac {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-rbac__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.admin-rbac__tabs button {
+  min-width: 0;
+}
+
+.admin-rbac__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr);
+  gap: 1rem;
+}
+
+.admin-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.admin-row,
+.info-card {
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1rem;
+}
+
+.admin-row {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.admin-row--stacked {
+  align-items: start;
+}
+
+.admin-row__header,
+.admin-row__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-row__controls {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-row p,
+.info-card p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.admin-row small,
+.info-card small {
+  color: var(--muted);
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.06);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  font-size: 0.8rem;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+
+.choice-grid--dense {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.choice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 18px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+
+.choice-card.is-selected {
+  border-color: #111111;
+  background: rgba(17, 17, 17, 0.04);
+}
+
+.choice-card input {
+  width: auto;
+  margin-top: 0.2rem;
+}
+
+.choice-card span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.toggle-row input {
+  width: auto;
+}
+
+.audit-json {
+  margin: 0;
+  padding: 0.9rem;
+  border-radius: 18px;
+  background: rgba(17, 17, 17, 0.05);
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 1180px) {
   .auth-screen,
   .portal-shell,
-  .content-grid {
+  .content-grid,
+  .admin-rbac__layout {
     grid-template-columns: 1fr;
   }
 
@@ -528,7 +675,9 @@ button.secondary,
   .auth-card__tabs,
   .hero-actions,
   .panel__header,
-  .brand-block {
+  .brand-block,
+  .admin-row__header,
+  .admin-row__footer {
     flex-direction: column;
     align-items: stretch;
   }

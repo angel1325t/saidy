@@ -2,44 +2,49 @@
 
 ## 1) Arranque tecnico
 
-- Levantar stack con Docker:
+Instalar dependencias y ejecutar el portal:
 
 ```bash
-docker compose up --build -d
+npm install
+npm run dev
 ```
 
-- Ejecutar smoke checks:
+Verificar calidad tecnica:
 
 ```bash
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke-local.ps1
+npm run typecheck
+npm run build
 ```
 
 ## 2) Flujo funcional minimo
 
-- Login y registro funcionan.
-- `posts.html`: lista, filtro, busqueda, like, navegacion a detalle.
-- `post.html`: lectura completa + comentarios visibles.
-- `my-posts.html` (author/admin): crear, editar, eliminar, comentar.
-- `admin.html` (admin): dashboard y usuarios.
+- Login y registro funcionan con Supabase Auth.
+- Administracion RBAC permite crear usuarios, roles, permisos y asignaciones.
+- Catalogo permite buscar, crear, editar, archivar materiales y administrar copias.
+- Circulacion permite crear prestamos, renovar, devolver, reservar, cancelar reservas y gestionar multas.
+- Administracion permite registrar inventario, adquisiciones, prestamos interbibliotecarios y notificaciones.
+- Digital permite listar recursos y abrir acceso cuando el perfil lo permite.
+- Auditoria registra acciones sensibles.
 
-## 3) Validacion de roles
+## 3) Validacion por rol
 
-- `reader`: no ve acciones de CRUD de posts.
-- `author`: puede gestionar solo sus posts en `my-posts.html`.
-- `admin`: acceso total + panel admin.
+- `ADMIN`: acceso total a usuarios, roles, catalogo, circulacion, reportes, auditoria y operacion.
+- `BIBLIOTECARIO`: gestiona catalogo, copias, prestamos, reservas, multas, inventario y reportes operativos.
+- `DOCENTE` / `INVESTIGADOR` / `ESTUDIANTE`: consulta catalogo, reserva, renueva prestamos propios, devuelve prestamos propios y consulta multas propias.
 
-## 4) Git y release
+## 4) Demo sugerida
 
-- Ramas de feature cerradas via PR.
-- `main` actualizado y limpio.
-- Ultimo `git status` sin cambios.
+1. Crear usuario bibliotecario o admin.
+2. Crear material con autores, etiquetas, ISBN/ISSN/DOI y Dewey.
+3. Agregar copia disponible con ubicacion.
+4. Crear prestamo fisico para un usuario.
+5. Renovar y devolver el prestamo.
+6. Crear reserva y cancelarla.
+7. Registrar inventario, adquisicion, solicitud interbibliotecaria y notificacion.
+8. Revisar auditoria y analitica operativa.
 
-## 5) Cierre de demo
+## 5) Git y release
 
-- Tener dos usuarios de prueba listos (`author` y `admin`).
-- Mostrar rutas clave en orden:
-  - `/posts.html`
-  - `/post.html?id=<id>`
-  - `/my-posts.html`
-  - `/admin.html`
-
+- Trabajar desde `feature/library-crud-circulation`.
+- Mantener commits pequenos y logicos con conventional commits.
+- Antes de mergear, confirmar `git status` limpio y verificaciones pasando.

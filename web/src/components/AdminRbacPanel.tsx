@@ -95,6 +95,11 @@ function unique(values: string[]) {
   return Array.from(new Set(values));
 }
 
+function getDraftRoleNames(roles: AdminRole[], selectedRoleKeys: string[]) {
+  const names = roles.filter((role) => selectedRoleKeys.includes(role.key)).map((role) => role.name);
+  return names.length > 0 ? names : ['Sin roles'];
+}
+
 async function maybeFetch<T>(enabled: boolean, path: string, token: string): Promise<T | null> {
   if (!enabled) {
     return null;
@@ -255,7 +260,7 @@ export function AdminRbacPanel({
   const handleSaveUserRoles = async (userId: string) => {
     if (!canAssignRoles) return;
 
-    const roleKeys = userRoleDrafts[userId] ?? [];
+    const nextRoleKeys = userRoleDrafts[userId] ?? [];
     setSubmitting(`user-${userId}`);
     setError(null);
     setMessage(null);
@@ -263,7 +268,7 @@ export function AdminRbacPanel({
     try {
       await apiFetch(`/api/admin/users/${userId}/roles`, token, {
         method: 'PATCH',
-        body: JSON.stringify({ role_keys: roleKeys })
+        body: JSON.stringify({ role_keys: nextRoleKeys })
       });
       setMessage('Roles de usuario actualizados.');
       refresh();
@@ -381,47 +386,49 @@ export function AdminRbacPanel({
       <div className="panel__header">
         <div>
           <span className="panel__eyebrow">RBAC</span>
-          <h2>Administración de usuarios, roles y permisos</h2>
+          <h2>Administracion de usuarios, roles y permisos</h2>
         </div>
-        {showTabs ? <div className="admin-rbac__tabs">
-          <button type="button" className={activeTab === 'users' ? 'is-active' : ''} onClick={() => setActiveTab('users')}>
-            Usuarios
-          </button>
-          <button type="button" className={activeTab === 'roles' ? 'is-active' : ''} onClick={() => setActiveTab('roles')}>
-            Roles
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'permissions' ? 'is-active' : ''}
-            onClick={() => setActiveTab('permissions')}
-          >
-            Permisos
-          </button>
-          <button type="button" className={activeTab === 'audit' ? 'is-active' : ''} onClick={() => setActiveTab('audit')}>
-            Auditoría
-          </button>
-        </div> : null}
+        {showTabs ? (
+          <div className="admin-rbac__tabs">
+            <button type="button" className={activeTab === 'users' ? 'is-active' : ''} onClick={() => setActiveTab('users')}>
+              Usuarios
+            </button>
+            <button type="button" className={activeTab === 'roles' ? 'is-active' : ''} onClick={() => setActiveTab('roles')}>
+              Roles
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'permissions' ? 'is-active' : ''}
+              onClick={() => setActiveTab('permissions')}
+            >
+              Permisos
+            </button>
+            <button type="button" className={activeTab === 'audit' ? 'is-active' : ''} onClick={() => setActiveTab('audit')}>
+              Auditoria
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {loading ? <div className="empty-state">Cargando administración RBAC...</div> : null}
+      {loading ? <div className="empty-state">Cargando administracion RBAC...</div> : null}
       {error ? <div className="page-banner">{error}</div> : null}
       {message ? <div className="page-banner">{message}</div> : null}
 
       {!canSeeAnyAdminTab && !loading ? (
-        <div className="empty-state">Tu perfil no tiene acceso a la administración RBAC.</div>
+        <div className="empty-state">Tu perfil no tiene acceso a la administracion RBAC.</div>
       ) : null}
 
       {!loading && canSeeAnyAdminTab ? (
         <>
           {activeTab === 'users' ? (
-            <div className="admin-rbac__layout">
-              <article className="panel editor-card">
+            <div className="admin-rbac__layout admin-rbac__layout--stacked">
+              <article className="panel editor-card admin-rbac__form-card">
                 <div className="panel__header">
                   <div>
                     <span className="panel__eyebrow">Crear usuario</span>
                     <h3>Alta institucional</h3>
                   </div>
-                  <span className="badge">Roles automáticos</span>
+                  <span className="badge">Directorio</span>
                 </div>
 
                 {canCreateUsers ? (
@@ -436,7 +443,7 @@ export function AdminRbacPanel({
                       />
                     </label>
                     <label>
-                      Contraseña inicial
+                      Contrasena inicial
                       <input
                         type="password"
                         minLength={8}
@@ -468,12 +475,12 @@ export function AdminRbacPanel({
                         <option value="student">Estudiante</option>
                         <option value="teacher">Docente</option>
                         <option value="researcher">Investigador</option>
-                        <option value="public">Público</option>
+                        <option value="public">Publico</option>
                         <option value="staff">Personal</option>
                       </select>
                     </label>
                     <label>
-                      Institución
+                      Institucion
                       <input
                         type="text"
                         value={userForm.institution}
@@ -497,11 +504,11 @@ export function AdminRbacPanel({
                 )}
               </article>
 
-              <article className="panel panel--wide">
+              <article className="panel admin-rbac__content">
                 <div className="panel__header">
                   <div>
                     <span className="panel__eyebrow">Usuarios</span>
-                    <h3>Asignación de roles</h3>
+                    <h3>Asignacion de roles</h3>
                   </div>
                   <span className="badge">{users.length} usuarios</span>
                 </div>
@@ -511,66 +518,90 @@ export function AdminRbacPanel({
                 ) : users.length === 0 ? (
                   <div className="empty-state">No hay usuarios para administrar.</div>
                 ) : (
-                  <div className="admin-list admin-list--table">
-                    <div className="admin-table-head">
-                      <span>Usuario</span>
-                      <span>Roles activos</span>
-                      <span>Asignacion de roles</span>
-                      <span>Accion</span>
-                    </div>
-                    {users.map((user) => {
-                      const draftRoles = userRoleDrafts[user.id] ?? user.roles.map((role) => role.key);
-                      return (
-                        <article key={user.id} className="admin-row admin-row--table">
-                          <div className="admin-row__summary">
-                            <strong>{user.full_name}</strong>
-                            <p>{user.email}</p>
-                            <small>
-                              {user.member_type} · {user.permissions.length} permisos efectivos · {user.roles.length} roles
-                            </small>
-                            <div className="badge-row badge-row--roles">
-                              {user.roles.map((role) => (
-                                <span key={role.id} className="badge">
-                                  {role.name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
+                  <div className="data-table-shell">
+                    <table className="data-table data-table--roles">
+                      <thead>
+                        <tr>
+                          <th>Usuario</th>
+                          <th>Perfil</th>
+                          <th>Roles actuales</th>
+                          <th>Asignacion</th>
+                          <th>Accion</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((user) => {
+                          const draftRoles = userRoleDrafts[user.id] ?? user.roles.map((role) => role.key);
 
-                          {canAssignRoles ? (
-                            <div className="admin-row__controls admin-row__controls--table">
-                              <div className="choice-grid choice-grid--role-table">
-                                {roles.map((role) => {
-                                  const checked = draftRoles.includes(role.key);
-                                  return (
-                                    <label key={role.id} className={checked ? 'choice-card is-selected' : 'choice-card'}>
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={() => handleUserRoleToggle(user.id, role.key)}
-                                      />
-                                      <span>
-                                        <strong>{role.name}</strong>
-                                        <small>{role.key}</small>
-                                      </span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleSaveUserRoles(user.id)}
-                                disabled={submitting === `user-${user.id}`}
-                              >
-                                {submitting === `user-${user.id}` ? 'Guardando...' : 'Guardar roles'}
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="empty-state">Solo un ADMIN puede asignar roles.</div>
-                          )}
-                        </article>
-                      );
-                    })}
+                          return (
+                            <tr key={user.id}>
+                              <td>
+                                <div className="table-primary">
+                                  <strong>{user.full_name}</strong>
+                                  <span>{user.email}</span>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="table-meta">
+                                  <strong>{user.member_type}</strong>
+                                  <span>{user.permissions.length} permisos efectivos</span>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="badge-row badge-row--table">
+                                  {getDraftRoleNames(roles, user.roles.map((role) => role.key)).map((roleName) => (
+                                    <span key={`${user.id}-${roleName}`} className="badge">
+                                      {roleName}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td>
+                                {canAssignRoles ? (
+                                  <div className="table-role-picker">
+                                    {roles.map((role) => {
+                                      const checked = draftRoles.includes(role.key);
+                                      return (
+                                        <label
+                                          key={role.id}
+                                          className={
+                                            checked ? 'choice-card choice-card--inline is-selected' : 'choice-card choice-card--inline'
+                                          }
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => handleUserRoleToggle(user.id, role.key)}
+                                          />
+                                          <span>
+                                            <strong>{role.name}</strong>
+                                            <small>{role.key}</small>
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="table-muted">Solo un ADMIN puede asignar roles.</div>
+                                )}
+                              </td>
+                              <td>
+                                <div className="table-actions">
+                                  <small>{draftRoles.length} seleccionados</small>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveUserRoles(user.id)}
+                                    disabled={!canAssignRoles || submitting === `user-${user.id}`}
+                                  >
+                                    {submitting === `user-${user.id}` ? 'Guardando...' : 'Guardar roles'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </article>
@@ -578,14 +609,14 @@ export function AdminRbacPanel({
           ) : null}
 
           {activeTab === 'roles' ? (
-            <div className="admin-rbac__layout">
-              <article className="panel editor-card">
+            <div className="admin-rbac__layout admin-rbac__layout--stacked">
+              <article className="panel editor-card admin-rbac__form-card">
                 <div className="panel__header">
                   <div>
                     <span className="panel__eyebrow">Crear rol</span>
-                    <h3>Extensión institucional</h3>
+                    <h3>Extension institucional</h3>
                   </div>
-                  <span className="badge">Sistema escalable</span>
+                  <span className="badge">Jerarquia</span>
                 </div>
 
                 {canManageRoles ? (
@@ -611,7 +642,7 @@ export function AdminRbacPanel({
                       />
                     </label>
                     <label>
-                      Descripción
+                      Descripcion
                       <textarea
                         rows={3}
                         value={roleForm.description}
@@ -636,7 +667,7 @@ export function AdminRbacPanel({
                 )}
               </article>
 
-              <article className="panel panel--wide">
+              <article className="panel admin-rbac__content">
                 <div className="panel__header">
                   <div>
                     <span className="panel__eyebrow">Roles</span>
@@ -661,16 +692,19 @@ export function AdminRbacPanel({
                               <p>{role.key}</p>
                             </div>
                             <div className="badge-row">
-                              <span className="badge">{role.permissions.length} permisos</span>
+                              <span className="badge">{draftPermissions.length} permisos</span>
                               {role.is_system ? <span className="badge">Sistema</span> : null}
                             </div>
                           </div>
 
-                          <div className="choice-grid choice-grid--dense">
+                          <div className="table-role-picker table-role-picker--permissions">
                             {availablePermissions.map((permission) => {
                               const checked = draftPermissions.includes(permission.key);
                               return (
-                                <label key={permission.id} className={checked ? 'choice-card is-selected' : 'choice-card'}>
+                                <label
+                                  key={permission.id}
+                                  className={checked ? 'choice-card choice-card--inline is-selected' : 'choice-card choice-card--inline'}
+                                >
                                   <input
                                     type="checkbox"
                                     checked={checked}
@@ -686,7 +720,7 @@ export function AdminRbacPanel({
                           </div>
 
                           <div className="admin-row__footer">
-                            <small>{role.description || 'Sin descripción'}</small>
+                            <small>{role.description || 'Sin descripcion'}</small>
                             <button
                               type="button"
                               onClick={() => handleSaveRolePermissions(role.id)}
@@ -705,8 +739,8 @@ export function AdminRbacPanel({
           ) : null}
 
           {activeTab === 'permissions' ? (
-            <div className="admin-rbac__layout">
-              <article className="panel editor-card">
+            <div className="admin-rbac__layout admin-rbac__layout--stacked">
+              <article className="panel editor-card admin-rbac__form-card">
                 <div className="panel__header">
                   <div>
                     <span className="panel__eyebrow">Crear permiso</span>
@@ -738,7 +772,7 @@ export function AdminRbacPanel({
                       />
                     </label>
                     <label>
-                      Descripción
+                      Descripcion
                       <textarea
                         rows={3}
                         value={permissionForm.description}
@@ -755,11 +789,11 @@ export function AdminRbacPanel({
                 )}
               </article>
 
-              <article className="panel panel--wide">
+              <article className="panel admin-rbac__content">
                 <div className="panel__header">
                   <div>
                     <span className="panel__eyebrow">Permisos</span>
-                    <h3>Catálogo vigente</h3>
+                    <h3>Catalogo vigente</h3>
                   </div>
                 </div>
 
@@ -768,14 +802,25 @@ export function AdminRbacPanel({
                 ) : availablePermissions.length === 0 ? (
                   <div className="empty-state">No hay permisos cargados.</div>
                 ) : (
-                  <div className="admin-grid">
-                    {availablePermissions.map((permission) => (
-                      <article key={permission.id} className="info-card">
-                        <strong>{permission.name}</strong>
-                        <small>{permission.key}</small>
-                        <p>{permission.description || 'Sin descripción'}</p>
-                      </article>
-                    ))}
+                  <div className="data-table-shell">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Nombre</th>
+                          <th>Clave</th>
+                          <th>Descripcion</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {availablePermissions.map((permission) => (
+                          <tr key={permission.id}>
+                            <td><strong>{permission.name}</strong></td>
+                            <td><code>{permission.key}</code></td>
+                            <td>{permission.description || 'Sin descripcion'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </article>
@@ -783,20 +828,20 @@ export function AdminRbacPanel({
           ) : null}
 
           {activeTab === 'audit' ? (
-            <div className="admin-rbac__layout">
-              <article className="panel panel--wide">
+            <div className="admin-rbac__layout admin-rbac__layout--stacked">
+              <article className="panel admin-rbac__content">
                 <div className="panel__header">
                   <div>
-                    <span className="panel__eyebrow">Auditoría</span>
+                    <span className="panel__eyebrow">Auditoria</span>
                     <h3>Acciones registradas</h3>
                   </div>
                   <span className="badge">{auditLogs.length} eventos</span>
                 </div>
 
                 {!canReadAudit ? (
-                  <div className="empty-state">No tienes permiso para ver la auditoría.</div>
+                  <div className="empty-state">No tienes permiso para ver la auditoria.</div>
                 ) : auditLogs.length === 0 ? (
-                  <div className="empty-state">No hay eventos de auditoría aún.</div>
+                  <div className="empty-state">No hay eventos de auditoria aun.</div>
                 ) : (
                   <div className="admin-list">
                     {auditLogs.map((entry) => (
@@ -805,8 +850,8 @@ export function AdminRbacPanel({
                           <div>
                             <strong>{entry.action}</strong>
                             <p>
-                              {entry.actor?.full_name || entry.actor?.email || entry.actor_id || 'Sistema'} ·{' '}
-                              {entry.entity_type}{entry.entity_id ? ` · ${entry.entity_id}` : ''}
+                              {entry.actor?.full_name || entry.actor?.email || entry.actor_id || 'Sistema'} · {entry.entity_type}
+                              {entry.entity_id ? ` · ${entry.entity_id}` : ''}
                             </p>
                           </div>
                           <small>{formatDate(entry.created_at)}</small>
@@ -815,7 +860,7 @@ export function AdminRbacPanel({
                         {entry.metadata ? (
                           <pre className="audit-json">{JSON.stringify(entry.metadata, null, 2)}</pre>
                         ) : (
-                          <div className="empty-state">Sin metadatos.</div>
+                          <div className="table-muted">Sin metadatos.</div>
                         )}
                       </article>
                     ))}

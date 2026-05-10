@@ -383,6 +383,16 @@ button.secondary,
 
 .sidebar__logout {
   margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.sidebar__logout.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  width: 100%;
 }
 
 .workspace {
@@ -861,6 +871,21 @@ button.secondary,
   grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.9fr);
   gap: 1.15rem;
   align-items: start;
+  isolation: isolate;
+}
+
+.admin-rbac__layout--stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-rbac__form-card {
+  width: 100%;
+  max-width: none;
+}
+
+.admin-rbac__content {
+  min-width: 0;
+  align-self: start;
 }
 
 .library-ops--embedded .admin-rbac__layout {
@@ -901,6 +926,14 @@ button.secondary,
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 0.85rem;
+}
+
+.admin-grid--double {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-grid--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .admin-row,
@@ -1013,6 +1046,10 @@ button.secondary,
   cursor: pointer;
 }
 
+.choice-card--inline {
+  min-height: 100%;
+}
+
 .choice-card.is-selected {
   border-color: #111111;
   background: rgba(17, 17, 17, 0.04);
@@ -1028,6 +1065,100 @@ button.secondary,
   gap: 0.15rem;
 }
 
+.data-table-shell {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  max-width: 100%;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 1rem 1.05rem;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table thead th {
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(17, 17, 17, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table--roles {
+  min-width: 1080px;
+}
+
+.table-primary,
+.table-meta,
+.table-actions {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.table-primary span,
+.table-meta span,
+.table-muted {
+  color: var(--muted);
+}
+
+.table-role-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 0.55rem;
+}
+
+.table-role-picker--permissions {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.table-actions {
+  min-width: 140px;
+}
+
+.table-actions--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge-row--table {
+  gap: 0.4rem;
+}
+
+.info-card--stacked {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.panel.panel--wide,
+.panel.editor-card,
+.info-card,
+.admin-row {
+  min-width: 0;
+}
+
 .crud-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1038,6 +1169,30 @@ button.secondary,
 .crud-form--admin {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem 1rem;
+}
+
+.admin-rbac__form-card .crud-form--admin {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-rbac__form-card .crud-form--admin > label:nth-last-of-type(2),
+.admin-rbac__form-card .crud-form--admin > label:last-of-type,
+.admin-rbac__form-card .crud-form--admin label:has(textarea) {
+  grid-column: span 1;
+}
+
+.admin-rbac__form-card .crud-form--admin > button {
+  grid-column: 1 / -1;
+}
+
+.admin-rbac__form-card .crud-form:not(.crud-form--admin) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-rbac__form-card .crud-form:not(.crud-form--admin) > label:has(textarea),
+.admin-rbac__form-card .crud-form:not(.crud-form--admin) > .toggle-row,
+.admin-rbac__form-card .crud-form:not(.crud-form--admin) > button {
+  grid-column: 1 / -1;
 }
 
 .library-ops--embedded .crud-form {
@@ -1122,8 +1277,8 @@ button.secondary,
 
 .editor-card {
   min-width: 0;
-  position: sticky;
-  top: 1.5rem;
+  position: relative;
+  align-self: start;
 }
 
 .data-table__cell--action,
@@ -1201,6 +1356,28 @@ button.secondary,
   .editor-card {
     position: static;
   }
+
+  .admin-grid--double,
+  .admin-grid--triple,
+  .table-role-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-rbac__form-card .crud-form--admin {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-rbac__form-card .crud-form:not(.crud-form--admin) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .data-table {
+    min-width: 640px;
+  }
+
+  .data-table--roles {
+    min-width: 860px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1223,8 +1400,37 @@ button.secondary,
   .section-stack--triple,
   .admin-info-grid,
   .admin-metrics,
+  .admin-grid--double,
+  .admin-grid--triple,
   .library-catalog__side,
   .disabled-module__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-rbac {
+    gap: 0.85rem;
+  }
+
+  .panel,
+  .info-card,
+  .admin-row {
+    padding: 0.9rem;
+  }
+
+  .data-table {
+    min-width: 560px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.85rem 0.8rem;
+  }
+
+  .admin-rbac__form-card .crud-form--admin {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-rbac__form-card .crud-form:not(.crud-form--admin) {
     grid-template-columns: 1fr;
   }
 

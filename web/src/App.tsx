@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase.js';
-import { apiFetch } from './lib/api.js';
+import { ApiError, apiFetch } from './lib/api.js';
 import { AdminRbacPanel } from './components/AdminRbacPanel.js';
+import { LibraryOperationsPanel } from './components/LibraryOperationsPanel.js';
 
 type Section = 'catalog' | 'circulation' | 'digital' | 'admin';
 
@@ -108,6 +109,7 @@ type AdminDashboard = {
   loans: number;
   reservations: number;
   fines: number;
+  inventory: number;
   acquisitions: number;
   interlibrary: number;
   notifications: number;
@@ -226,6 +228,18 @@ function App() {
     }
 
     let active = true;
+    const handleUnauthorized = async (error: unknown) => {
+      if (error instanceof ApiError && error.status === 401) {
+        await supabase.auth.signOut();
+        if (active) {
+          setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        }
+        return true;
+      }
+
+      return false;
+    };
+
     const load = async () => {
       setLoadingData(true);
       setError(null);
@@ -261,6 +275,7 @@ function App() {
             (result) => result.status === 'rejected'
           ) ?? null;
         if (firstFailure?.status === 'rejected') {
+          if (await handleUnauthorized(firstFailure.reason)) return;
           setError(
             firstFailure.reason instanceof Error
               ? firstFailure.reason.message
@@ -269,6 +284,7 @@ function App() {
         }
       } catch (loadError) {
         if (!active) return;
+        if (await handleUnauthorized(loadError)) return;
         setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el portal');
       } finally {
         if (active) {
@@ -380,6 +396,11 @@ function App() {
     setRefreshTick((current) => current + 1);
   };
 
+  const handleUnauthorized = async () => {
+    await supabase.auth.signOut();
+    setError('Tu sesión expiró. Inicia sesión nuevamente.');
+  };
+
   const handleReserve = async (materialId: string) => {
     if (!session) return;
     setError(null);
@@ -392,7 +413,63 @@ function App() {
       const reservations = await apiFetch<{ items: Reservation[] }>('/api/circulation/reservations', session.access_token);
       setPortalData((current) => ({ ...current, reservations: reservations.items }));
     } catch (reserveError) {
+      if (reserveError instanceof ApiError && reserveError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
       setError(reserveError instanceof Error ? reserveError.message : 'No se pudo reservar el material');
+    }
+  };
+
+  const handleLoanAction = async (loanId: string, action: 'renew' | 'return') => {
+    if (!session) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/api/circulation/loans/${loanId}/${action}`, session.access_token, { method: 'POST' });
+      setRefreshTick((current) => current + 1);
+    } catch (loanError) {
+      if (loanError instanceof ApiError && loanError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
+      setError(loanError instanceof Error ? loanError.message : 'No se pudo actualizar el préstamo');
+    }
+  };
+
+  const handleCancelReservation = async (reservationId: string) => {
+    if (!session) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/api/circulation/reservations/${reservationId}/cancel`, session.access_token, { method: 'POST' });
+      setRefreshTick((current) => current + 1);
+    } catch (reservationError) {
+      if (reservationError instanceof ApiError && reservationError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
+      setError(reservationError instanceof Error ? reservationError.message : 'No se pudo cancelar la reserva');
+    }
+  };
+
+  const handlePayFine = async (fineId: string) => {
+    if (!session) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/api/circulation/fines/${fineId}/pay`, session.access_token, { method: 'POST' });
+      setRefreshTick((current) => current + 1);
+    } catch (fineError) {
+      if (fineError instanceof ApiError && fineError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
+      setError(fineError instanceof Error ? fineError.message : 'No se pudo actualizar la multa');
     }
   };
 
@@ -735,6 +812,14 @@ function App() {
                     <span>
                       {loan.status} · vence {formatDate(loan.due_at)}
                     </span>
+                    <div className="badge-row">
+                      <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'renew')}>
+                        Renovar
+                      </button>
+                      <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'return')}>
+                        Devolver
+                      </button>
+                    </div>
                   </article>
                 ))}
                 {portalData.loans.length === 0 ? <div className="empty-state">No hay préstamos registrados.</div> : null}
@@ -756,6 +841,9 @@ function App() {
                     <span>
                       {reservation.status} · posición {reservation.queue_position}
                     </span>
+                    <button type="button" className="badge" onClick={() => handleCancelReservation(reservation.id)}>
+                      Cancelar
+                    </button>
                   </article>
                 ))}
                 {portalData.reservations.length === 0 ? <div className="empty-state">No hay reservas activas.</div> : null}
@@ -779,6 +867,11 @@ function App() {
                     <span>
                       {fine.status} · {fine.reason || 'Sin detalle'} · emitida {formatDate(fine.issued_at)}
                     </span>
+                    {isStaff ? (
+                      <button type="button" className="badge" onClick={() => handlePayFine(fine.id)}>
+                        Marcar pagada
+                      </button>
+                    ) : null}
                   </article>
                 ))}
                 {portalData.fines.length === 0 ? <div className="empty-state">No hay multas registradas.</div> : null}
@@ -830,7 +923,7 @@ function App() {
                   <article className="metric-card"><span>Materiales</span><strong>{portalData.dashboard.materials}</strong></article>
                   <article className="metric-card"><span>Reservas</span><strong>{portalData.dashboard.reservations}</strong></article>
                   <article className="metric-card"><span>Multas</span><strong>{portalData.dashboard.fines}</strong></article>
-                  <article className="metric-card"><span>Inventario</span><strong>{portalData.dashboard.acquisitions}</strong></article>
+                  <article className="metric-card"><span>Inventario</span><strong>{portalData.dashboard.inventory}</strong></article>
                 </div>
               ) : (
                 <div className="empty-state">Solo bibliotecarios y administradores pueden ver este módulo.</div>
@@ -881,6 +974,14 @@ function App() {
               token={session.access_token}
               roleKeys={profile?.roles.map((role) => role.key) ?? []}
               permissions={profile?.permissions.map((permission) => permission.key) ?? []}
+            />
+
+            <LibraryOperationsPanel
+              token={session.access_token}
+              roleKeys={profile?.roles.map((role) => role.key) ?? []}
+              permissions={profile?.permissions.map((permission) => permission.key) ?? []}
+              onChanged={handleRefreshProfile}
+              onUnauthorized={handleUnauthorized}
             />
           </section>
         ) : null}

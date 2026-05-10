@@ -48,6 +48,23 @@ app.get('/health', async (_req, res) => {
   res.json({ status: 'ok', service: 'users-service' });
 });
 
+app.get('/internal/users/count', async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         COUNT(*)::int AS total,
+         SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END)::int AS admins
+       FROM users`
+    );
+
+    const row = result.rows[0] || { total: 0, admins: 0 };
+    return res.json({ total: row.total ?? 0, admins: row.admins ?? 0 });
+  } catch (error) {
+    console.error('GET /internal/users/count error', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 app.post('/users', async (req, res) => {
   const name = String(req.body.name || '').trim();
   const email = normalizeEmail(req.body.email);
@@ -127,6 +144,48 @@ app.get('/internal/users/by-email/:email', async (req, res) => {
     return res.json(mapUser(result.rows[0], true));
   } catch (error) {
     console.error('GET /internal/users/by-email/:email error', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.patch('/internal/users/:id/role', async (req, res) => {
+  const id = Number(req.params.id);
+  const role = normalizeRole(req.body.role);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ message: 'Invalid user id' });
+  }
+
+  if (!role) {
+    return res.status(400).json({ message: 'Role must be admin, author or reader' });
+  }
+
+  try {
+    const currentUserResult = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
+    if (currentUserResult.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const currentRole = currentUserResult.rows[0]?.role;
+    if (String(currentRole).toLowerCase() === 'admin' && role !== 'admin') {
+      const adminCountResult = await pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'`);
+      const adminCount = Number(adminCountResult.rows[0]?.count ?? 0);
+      if (adminCount <= 1) {
+        return res.status(409).json({ message: 'Cannot remove the last admin user' });
+      }
+    }
+
+    const result = await pool.query(
+      `UPDATE users
+       SET role = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [role, id]
+    );
+
+    return res.json(mapUser(result.rows[0]));
+  } catch (error) {
+    console.error('PATCH /internal/users/:id/role error', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

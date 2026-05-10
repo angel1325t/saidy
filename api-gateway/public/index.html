@@ -4,15 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blog Microservicios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/app.css" />
   </head>
-  <body class="min-h-screen bg-slate-100">
+  <body class="app-shell">
     <div id="nav-slot"></div>
-    <main class="mx-auto max-w-3xl px-4 py-16">
-      <div class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <h1 class="text-2xl font-bold text-slate-900">Cargando...</h1>
-        <p class="mt-2 text-sm text-slate-600">Redireccionando a la pantalla correcta.</p>
-      </div>
+    <main class="page-wrap">
+      <section class="hero">
+        <p class="hero-kicker">Inicio</p>
+        <h1>Cargando...</h1>
+        <p>Redireccionando a la pantalla correcta.</p>
+      </section>
     </main>
 
     <script src="/js/shared.js"></script>

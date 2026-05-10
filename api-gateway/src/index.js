@@ -119,16 +119,10 @@ app.get('/health', (_req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const role = normalizeRole(req.body.role);
-    if (!role) {
-      return res.status(400).json({ message: 'Role must be admin, author or reader' });
-    }
-
     const response = await axios.post(`${services.auth}/auth/register`, {
       name: req.body.name,
       email: req.body.email,
-      password: req.body.password,
-      role
+      password: req.body.password
     });
 
     return res.status(response.status).json(response.data);
@@ -171,6 +165,25 @@ app.patch('/api/users/me', authRequired, async (req, res) => {
 app.get('/api/users', authRequired, requireRole('admin'), async (_req, res) => {
   try {
     const response = await axios.get(`${services.users}/users`);
+    return res.json(response.data);
+  } catch (error) {
+    return mapAxiosError(error, res);
+  }
+});
+
+app.patch('/api/admin/users/:id/role', authRequired, requireRole('admin'), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    const role = normalizeRole(req.body.role);
+    if (!role) {
+      return res.status(400).json({ message: 'Role must be admin, author or reader' });
+    }
+
+    const response = await axios.patch(`${services.users}/internal/users/${id}/role`, { role });
     return res.json(response.data);
   } catch (error) {
     return mapAxiosError(error, res);

@@ -485,117 +485,119 @@ function App() {
 
   if (!session) {
     return (
-      <div className="auth-screen">
-        <section className="auth-hero">
-          <div className="eyebrow">Saidy Library</div>
-          <h1>Biblioteca híbrida con control de catálogo, circulación y digital.</h1>
-          <p>
-            Un portal monocromo, limpio y preparado para administrar materiales físicos y digitales
-            con Supabase como backend.
-          </p>
+      <div className="auth-screen auth-screen--poster">
+        <div className="auth-poster">
+          <section className="auth-pane">
+            <a href="/" className="auth-back" aria-label="Volver al inicio">
+              &larr; Home
+            </a>
 
-          <div className="hero-metrics">
-            <article>
-              <strong>Catálogo</strong>
-              <span>Material físico + digital</span>
-            </article>
-            <article>
-              <strong>Préstamos</strong>
-              <span>Renovaciones, reservas y multas</span>
-            </article>
-            <article>
-              <strong>Admin</strong>
-              <span>Inventario y analítica</span>
-            </article>
-          </div>
-        </section>
+            <div className="auth-pane__header">
+              <div className="auth-pane__kicker">Saidy Library</div>
+              <h1>{authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</h1>
+              <p>
+                {authMode === 'login'
+                  ? 'Accede a tu cuenta para administrar tu catálogo y circulación.'
+                  : 'Tu cuenta se registra como estudiante. Un admin puede asignarte permisos después.'}
+              </p>
+            </div>
 
-        <section className="auth-card">
-          <div className="auth-card__tabs">
-            <button type="button" className={authMode === 'login' ? 'is-active' : ''} onClick={() => setAuthMode('login')}>
-              Iniciar sesión
-            </button>
-            <button
-              type="button"
-              className={authMode === 'register' ? 'is-active' : ''}
-              onClick={() => setAuthMode('register')}
-            >
-              Crear cuenta
-            </button>
-          </div>
+            {authMode === 'login' ? (
+              <form className="auth-form" onSubmit={handleLogin}>
+                <label>
+                  Correo
+                  <input
+                    type="email"
+                    value={authForm.email}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
+                    required
+                    placeholder="tu@correo.com"
+                    autoComplete="email"
+                  />
+                </label>
+                <label>
+                  Contraseña
+                  <input
+                    type="password"
+                    value={authForm.password}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
+                    required
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                  />
+                </label>
+                <button type="submit">Entrar</button>
+              </form>
+            ) : (
+              <form className="auth-form" onSubmit={handleRegister}>
+                <label>
+                  Nombre completo
+                  <input
+                    type="text"
+                    value={authForm.fullName}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))}
+                    required
+                    placeholder="Tu nombre"
+                    autoComplete="name"
+                  />
+                </label>
+                <label>
+                  Correo
+                  <input
+                    type="email"
+                    value={authForm.email}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
+                    required
+                    placeholder="tu@correo.com"
+                    autoComplete="email"
+                  />
+                </label>
+                <label>
+                  Contraseña
+                  <input
+                    type="password"
+                    minLength={6}
+                    value={authForm.password}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
+                    required
+                    placeholder="Mínimo 6 caracteres"
+                    autoComplete="new-password"
+                  />
+                </label>
+                <label>
+                  Institución
+                  <input
+                    type="text"
+                    value={authForm.institution}
+                    onChange={(event) => setAuthForm((current) => ({ ...current, institution: event.target.value }))}
+                    placeholder="Opcional"
+                    autoComplete="organization"
+                  />
+                </label>
+                <button type="submit">Crear cuenta</button>
+              </form>
+            )}
 
-          {authMode === 'login' ? (
-            <form className="auth-form" onSubmit={handleLogin}>
-              <label>
-                Correo
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={authForm.email}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Contraseña
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
-                  required
-                />
-              </label>
-              <button type="submit">Entrar</button>
-            </form>
-          ) : (
-            <form className="auth-form" onSubmit={handleRegister}>
-              <label>
-                Nombre completo
-                <input
-                  type="text"
-                  autoComplete="name"
-                  value={authForm.fullName}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Correo
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={authForm.email}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Contraseña
-                <input
-                  type="password"
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
-                  required
-                />
-              </label>
-              <label>
-                Institución
-                <input
-                  type="text"
-                  autoComplete="organization"
-                  value={authForm.institution}
-                  onChange={(event) => setAuthForm((current) => ({ ...current, institution: event.target.value }))}
-                />
-              </label>
-              <button type="submit">Crear cuenta</button>
-            </form>
-          )}
+            {error ? <p className="form-feedback">{error}</p> : null}
+          </section>
 
-          {error ? <p className="form-feedback">{error}</p> : null}
-        </section>
+          <aside className="auth-splash">
+            <div className="auth-splash__content">
+              <div className="auth-splash__kicker">Portal Saidy</div>
+              <h2>{authMode === 'login' ? 'Hola' : 'Get started'}</h2>
+              <p>
+                {authMode === 'login' ? '¿No tienes una cuenta todavía?' : '¿Ya tienes una cuenta?'}
+              </p>
+              <button
+                type="button"
+                className="auth-splash__button"
+                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+              >
+                {authMode === 'login' ? 'Crear cuenta' : 'Iniciar sesión'}
+              </button>
+            </div>
+          </aside>
+        </div>
       </div>
     );
   }

@@ -4,38 +4,47 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Perfil | Blog Microservicios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/app.css" />
   </head>
-  <body class="min-h-screen bg-slate-100">
+  <body class="app-shell">
     <div id="nav-slot"></div>
 
-    <main class="mx-auto max-w-3xl px-4 py-8">
-      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 class="text-2xl font-bold text-slate-900">Mi perfil</h1>
-        <p class="mt-1 text-sm text-slate-600">Actualiza tus datos personales.</p>
+    <main class="page-wrap">
+      <section class="hero">
+        <p class="hero-kicker">Cuenta</p>
+        <h1>Mi perfil</h1>
+        <p>Edita tu información personal y personaliza tu avatar.</p>
+      </section>
 
-        <div class="mt-4 grid gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-          <p><span class="font-semibold">Correo:</span> <span id="profile-email">-</span></p>
-          <p><span class="font-semibold">Rol:</span> <span id="profile-role">-</span></p>
-        </div>
+      <section class="panel">
+        <dl class="kv-grid">
+          <div class="kv-item">
+            <dt>Correo</dt>
+            <dd id="profile-email">-</dd>
+          </div>
+          <div class="kv-item">
+            <dt>Rol</dt>
+            <dd id="profile-role">-</dd>
+          </div>
+        </dl>
 
-        <div id="page-message" class="mt-4 hidden"></div>
+        <div id="page-message" class="hidden"></div>
 
-        <form id="profile-form" class="mt-5 space-y-3">
+        <form id="profile-form" class="form-grid stack-top">
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Nombre</label>
-            <input name="name" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
+            <label class="field-label" for="profile-name">Nombre</label>
+            <input id="profile-name" name="name" type="text" class="input" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Bio</label>
-            <textarea name="bio" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"></textarea>
+            <label class="field-label" for="profile-bio">Bio</label>
+            <textarea id="profile-bio" name="bio" rows="3" class="textarea"></textarea>
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Avatar URL</label>
-            <input name="avatarUrl" type="url" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
+            <label class="field-label" for="profile-avatar">Avatar URL</label>
+            <input id="profile-avatar" name="avatarUrl" type="url" class="input" placeholder="https://..." />
           </div>
 
-          <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Guardar cambios</button>
+          <button class="btn btn-primary" type="submit">Guardar cambios</button>
         </form>
       </section>
     </main>

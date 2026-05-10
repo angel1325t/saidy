@@ -4,53 +4,60 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Registro | Blog Microservicios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/app.css" />
   </head>
-  <body class="min-h-screen bg-slate-100">
+  <body class="app-shell">
     <div id="nav-slot"></div>
 
-    <main class="mx-auto flex min-h-[calc(100vh-88px)] max-w-6xl items-center justify-center px-4 py-8">
-      <section class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 class="text-2xl font-bold text-slate-900">Crear cuenta</h1>
-        <p class="mt-2 text-sm text-slate-600">Selecciona tu rol y crea tu usuario.</p>
+    <main class="page-wrap auth-page">
+      <div class="auth-layout auth-layout--poster">
+        <section class="panel auth-card">
+          <a class="back-link" href="/posts.html">&larr; Home</a>
+          <h2>Crear cuenta</h2>
+          <p class="muted">Completa tus datos para registrarte.</p>
 
-        <form id="register-form" class="mt-6 space-y-4">
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Nombre</label>
-            <input name="name" type="text" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
+          <div class="read-only-note">Nota: el rol no se elige aquí. Un administrador puede asignarte permisos después.</div>
+
+          <form id="register-form" class="form-grid">
+            <div>
+              <label class="field-label" for="register-name">Nombre</label>
+              <input id="register-name" name="name" type="text" required class="input" placeholder="Tu nombre" autocomplete="name" />
+            </div>
+
+            <div>
+              <label class="field-label" for="register-email">Correo</label>
+              <input id="register-email" name="email" type="email" required class="input" placeholder="tu@correo.com" autocomplete="email" />
+            </div>
+
+            <div>
+              <label class="field-label" for="register-password">Contraseña</label>
+              <input
+                id="register-password"
+                name="password"
+                type="password"
+                minlength="6"
+                required
+                class="input"
+                placeholder="Mínimo 6 caracteres"
+                autocomplete="new-password"
+              />
+            </div>
+
+            <button class="btn btn-primary" type="submit">Registrarme</button>
+          </form>
+
+          <div id="form-message" class="hidden"></div>
+        </section>
+
+        <aside class="auth-aside auth-aside--splash">
+          <div class="auth-splash">
+            <p class="auth-splash__kicker">Blog Microservicios</p>
+            <h2>¡Bienvenido!</h2>
+            <p>¿Ya tienes una cuenta?</p>
+            <a href="/login.html" class="btn btn-invert">Iniciar sesión</a>
           </div>
-
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Correo</label>
-            <input name="email" type="email" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
-          </div>
-
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Contrasena</label>
-            <input name="password" type="password" minlength="6" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
-          </div>
-
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Rol</label>
-            <select name="role" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none">
-              <option value="reader">Lector (solo leer y comentar)</option>
-              <option value="author">Autor (crear y editar sus posts)</option>
-              <option value="admin">Administrador (control total)</option>
-            </select>
-          </div>
-
-          <button class="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-            Registrarme
-          </button>
-        </form>
-
-        <div id="form-message" class="mt-4 hidden"></div>
-
-        <p class="mt-6 text-sm text-slate-600">
-          Ya tienes cuenta?
-          <a href="/login.html" class="font-semibold text-sky-700 hover:text-sky-800">Inicia sesion</a>
-        </p>
-      </section>
+        </aside>
+      </div>
     </main>
 
     <script src="/js/shared.js"></script>

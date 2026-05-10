@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin | Blog Microservicios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/app.css" />
   </head>
   <body class="app-shell">
@@ -12,11 +11,11 @@
 
     <main class="page-wrap admin-wrap">
       <aside class="panel admin-menu">
-        <h2>Menu admin</h2>
-        <p class="muted">Navegacion rapida del panel.</p>
+        <h2>Menú admin</h2>
+        <p class="muted">Navegación rápida del panel.</p>
         <nav>
           <a href="#dashboard">Dashboard general</a>
-          <a href="#insights">Graficos</a>
+          <a href="#insights">Gráficos</a>
           <a href="#rankings">Rankings</a>
           <a href="#users">Usuarios</a>
         </nav>
@@ -25,8 +24,8 @@
       <section class="admin-content">
         <section class="hero">
           <p class="hero-kicker">Control total</p>
-          <h1>Panel de administracion</h1>
-          <p>Monitorea actividad, revisa graficos y consulta usuarios desde un espacio dedicado para admin.</p>
+          <h1>Panel de administración</h1>
+          <p>Monitorea actividad, revisa gráficos y consulta usuarios desde un espacio dedicado para administradores.</p>
         </section>
 
         <div id="page-message" class="message-box hidden"></div>
@@ -53,11 +52,11 @@
             <p id="stat-admin-count" class="value">0</p>
           </article>
           <article class="stat-card">
-            <p class="label">Authors</p>
+            <p class="label">Autores</p>
             <p id="stat-author-count" class="value">0</p>
           </article>
           <article class="stat-card">
-            <p class="label">Readers</p>
+            <p class="label">Estudiantes</p>
             <p id="stat-reader-count" class="value">0</p>
           </article>
           <article class="stat-card">
@@ -68,9 +67,9 @@
 
         <section id="insights" class="charts-grid">
           <article class="panel chart-card">
-            <h3>Distribucion por rol</h3>
-            <p class="muted">Participacion de cada tipo de usuario.</p>
-            <canvas id="role-chart" aria-label="Distribucion de roles"></canvas>
+            <h3>Distribución por rol</h3>
+            <p class="muted">Participación de cada tipo de usuario.</p>
+            <canvas id="role-chart" aria-label="Distribución de roles"></canvas>
           </article>
 
           <article class="panel chart-card">
@@ -81,7 +80,7 @@
 
           <article class="panel chart-card">
             <h3>Actividad global</h3>
-            <p class="muted">Comparacion entre posts, likes y comentarios.</p>
+            <p class="muted">Comparación entre posts, likes y comentarios.</p>
             <canvas id="activity-chart" aria-label="Actividad global"></canvas>
           </article>
         </section>
@@ -92,7 +91,7 @@
             <ul id="top-tags-list" class="simple-list"></ul>
           </article>
           <article class="panel">
-            <h3>Posts mas likeados</h3>
+            <h3>Posts más likeados</h3>
             <ul id="top-posts-list" class="simple-list"></ul>
           </article>
         </section>
@@ -117,6 +116,7 @@
                   <th>Nombre</th>
                   <th>Correo</th>
                   <th>Rol</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="users-tbody"></tbody>

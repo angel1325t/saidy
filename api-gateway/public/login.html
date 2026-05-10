@@ -4,39 +4,52 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Blog Microservicios</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/app.css" />
   </head>
-  <body class="min-h-screen bg-slate-100">
+  <body class="app-shell">
     <div id="nav-slot"></div>
 
-    <main class="mx-auto flex min-h-[calc(100vh-88px)] max-w-6xl items-center justify-center px-4 py-8">
-      <section class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 class="text-2xl font-bold text-slate-900">Iniciar sesion</h1>
-        <p class="mt-2 text-sm text-slate-600">Accede a tu cuenta para crear o comentar publicaciones.</p>
+    <main class="page-wrap auth-page">
+      <div class="auth-layout auth-layout--poster">
+        <section class="panel auth-card">
+          <a class="back-link" href="/posts.html">&larr; Home</a>
+          <h2>Iniciar sesión</h2>
+          <p class="muted">Usa tu correo y contraseña para entrar.</p>
 
-        <form id="login-form" class="mt-6 space-y-4">
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Correo</label>
-            <input name="email" type="email" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
+          <form id="login-form" class="form-grid">
+            <div>
+              <label class="field-label" for="login-email">Correo</label>
+              <input id="login-email" name="email" type="email" required class="input" placeholder="tu@correo.com" autocomplete="email" />
+            </div>
+
+            <div>
+              <label class="field-label" for="login-password">Contraseña</label>
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                required
+                class="input"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+            </div>
+
+            <button class="btn btn-primary" type="submit">Entrar</button>
+          </form>
+
+          <div id="form-message" class="hidden"></div>
+        </section>
+
+        <aside class="auth-aside auth-aside--splash">
+          <div class="auth-splash">
+            <p class="auth-splash__kicker">Blog Microservicios</p>
+            <h2>Get started</h2>
+            <p>¿No tienes una cuenta todavía?</p>
+            <a href="/register.html" class="btn btn-invert">Crear cuenta</a>
           </div>
-
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Contrasena</label>
-            <input name="password" type="password" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" />
-          </div>
-
-          <button class="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-            Entrar
-          </button>
-        </form>
-
-        <div id="form-message" class="mt-4 hidden"></div>
-
-        <p class="mt-6 text-sm text-slate-600">
-          No tienes cuenta?
-          <a href="/register.html" class="font-semibold text-sky-700 hover:text-sky-800">Registrate aqui</a>
-        </p>
-      </section>
+        </aside>
+      </div>
     </main>
 
     <script src="/js/shared.js"></script>

@@ -1,4 +1,35 @@
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+type ViteImportMeta = ImportMeta & {
+  env?: {
+    VITE_API_BASE_URL?: string;
+  };
+};
+
+const baseUrl = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL || 'http://localhost:4000';
+
+export class ApiError extends Error {
+  status: number;
+  details: unknown;
+
+  constructor(message: string, status: number, details?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
+function flattenDetails(details: unknown) {
+  if (!details || typeof details !== 'object') return null;
+
+  const fieldErrors = 'fieldErrors' in details ? (details as { fieldErrors?: Record<string, string[]> }).fieldErrors : null;
+  if (!fieldErrors) return typeof details === 'string' ? details : null;
+
+  const messages = Object.entries(fieldErrors)
+    .flatMap(([field, errors]) => errors.map((error) => `${field}: ${error}`))
+    .slice(0, 4);
+
+  return messages.length > 0 ? messages.join(' | ') : null;
+}
 
 export class ApiError extends Error {
   status: number;

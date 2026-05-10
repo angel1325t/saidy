@@ -43,6 +43,23 @@ const createUserSchema = z.object({
   role_keys: z.array(z.string().min(2).max(80)).max(10).optional()
 });
 
+const updateUserSchema = z.object({
+  email: z.string().email().optional(),
+  full_name: z.string().min(2).max(120).optional(),
+  member_type: z.enum(['public', 'student', 'teacher', 'researcher', 'staff']).optional(),
+  blocked_until: z.string().datetime().nullable().optional(),
+  can_access_digital: z.boolean().optional(),
+  loan_limit: z.coerce.number().int().min(0).optional(),
+  reservation_limit: z.coerce.number().int().min(0).optional(),
+  institution: z.string().max(180).nullable().optional(),
+  department: z.string().max(180).nullable().optional(),
+  bio: z.string().max(800).nullable().optional(),
+  avatar_url: z.string().url().nullable().optional(),
+  phone: z.string().max(50).nullable().optional(),
+  preferred_language: z.string().max(10).optional(),
+  role_keys: z.array(z.string().min(2).max(80)).max(10).optional()
+});
+
 const upsertRoleSchema = z.object({
   key: z.string().trim().min(2).max(80).regex(/^[A-Z0-9:_-]+$/),
   name: z.string().trim().min(2).max(120),
@@ -86,6 +103,37 @@ const interlibraryPayloadSchema = z.object({
   material_title: z.string().min(2).max(200),
   external_library: z.string().max(180).optional().nullable(),
   notes: z.string().max(4000).optional().nullable(),
+  metadata: z.record(z.unknown()).optional()
+});
+
+const inventoryPayloadSchema = z.object({
+  copy_id: z.string().uuid().optional().nullable(),
+  material_id: z.string().uuid().optional().nullable(),
+  location: z.string().max(180).optional().nullable(),
+  condition_status: z.string().max(80).default('good'),
+  is_missing: z.boolean().default(false),
+  notes: z.string().max(2000).optional().nullable()
+});
+
+const acquisitionUpdateSchema = z.object({
+  status: z.enum(['requested', 'approved', 'ordered', 'received', 'cancelled']).optional(),
+  justification: z.string().max(4000).optional().nullable(),
+  supplier: z.string().max(180).optional().nullable(),
+  estimated_cost: z.coerce.number().nonnegative().optional().nullable(),
+  metadata: z.record(z.unknown()).optional()
+});
+
+const interlibraryUpdateSchema = z.object({
+  status: z.enum(['requested', 'approved', 'shipped', 'received', 'returned', 'cancelled']).optional(),
+  external_library: z.string().max(180).optional().nullable(),
+  notes: z.string().max(4000).optional().nullable(),
+  metadata: z.record(z.unknown()).optional()
+});
+
+const notificationUpdateSchema = z.object({
+  read_at: z.string().datetime().nullable().optional(),
+  title: z.string().min(2).max(200).optional(),
+  body: z.string().min(2).max(4000).optional(),
   metadata: z.record(z.unknown()).optional()
 });
 
@@ -248,11 +296,12 @@ async function resolvePermissionIds(permissionKeys: string[]) {
 }
 
 adminRouter.get('/dashboard', requireAuth, requireAnyPermission('dashboard:view'), async (_req, res) => {
-  const [materials, loans, reservations, fines, acquisitions, interlibrary, notifications] = await Promise.all([
+  const [materials, loans, reservations, fines, inventory, acquisitions, interlibrary, notifications] = await Promise.all([
     supabaseAdmin.from('materials').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('loans').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('reservations').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('fines').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('inventory_items').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('acquisition_requests').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('interlibrary_requests').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('notifications').select('id', { count: 'exact', head: true })
@@ -263,6 +312,7 @@ adminRouter.get('/dashboard', requireAuth, requireAnyPermission('dashboard:view'
     loans: loans.count ?? 0,
     reservations: reservations.count ?? 0,
     fines: fines.count ?? 0,
+    inventory: inventory.count ?? 0,
     acquisitions: acquisitions.count ?? 0,
     interlibrary: interlibrary.count ?? 0,
     notifications: notifications.count ?? 0
@@ -336,6 +386,118 @@ adminRouter.post('/users', requireAuth, requireAnyPermission('users:create'), as
   }
 });
 
+adminRouter.get('/users/:id', requireAuth, requireAnyPermission('users:read'), async (req, res) => {
+  try {
+    const user = (await loadUserDirectory()).find((item) => item.id === req.params.id);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    return res.json({ user });
+  } catch (error) {
+    return sendError(res, 500, 'Unable to load user', error instanceof Error ? error.message : 'Unknown error');
+  }
+});
+
+adminRouter.patch('/users/:id', requireAuth, requireAnyPermission('users:update'), async (req: AuthedRequest, res) => {
+  const parsed = updateUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 400, 'Invalid user payload', parsed.error.flatten());
+  }
+
+  const { role_keys, ...profileUpdates } = parsed.data;
+  const targetUserId = getParamId(req.params.id);
+  if (!targetUserId) {
+    return sendError(res, 400, 'Invalid user id');
+  }
+
+  if (Object.keys(profileUpdates).length > 0) {
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        ...profileUpdates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', targetUserId);
+
+    if (error) {
+      return sendError(res, 500, 'Unable to update user profile', error.message);
+    }
+  }
+
+  if (role_keys) {
+    if (!req.auth?.permissions.some((permission) => permission.key === 'users:assign_roles')) {
+      return sendError(res, 403, 'Insufficient permissions to assign roles');
+    }
+
+    try {
+      const roleIds = await resolveRoleIds(role_keys);
+      const { error: deleteError } = await supabaseAdmin.from('user_roles').delete().eq('user_id', targetUserId);
+      if (deleteError) {
+        return sendError(res, 500, 'Unable to replace user roles', deleteError.message);
+      }
+
+      if (roleIds.length > 0) {
+        const { error: insertError } = await supabaseAdmin.from('user_roles').insert(
+          roleIds.map((roleId) => ({
+            user_id: targetUserId,
+            role_id: roleId,
+            assigned_by: req.auth!.userId
+          }))
+        );
+
+        if (insertError) {
+          return sendError(res, 500, 'Unable to assign roles', insertError.message);
+        }
+      }
+    } catch (error) {
+      return sendError(res, 400, 'Unable to resolve roles', error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'users.update',
+    entityType: 'user',
+    entityId: targetUserId,
+    metadata: { changed_fields: Object.keys(parsed.data) }
+  });
+
+  const user = (await loadUserDirectory()).find((item) => item.id === targetUserId);
+  return res.json({ user });
+});
+
+adminRouter.delete('/users/:id', requireAuth, requireAnyPermission('users:update'), async (req: AuthedRequest, res) => {
+  const blockedUntil = '2999-12-31T23:59:59.000Z';
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .update({
+      blocked_until: blockedUntil,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to archive user', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'User not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'users.archive',
+    entityType: 'user',
+    entityId: data.id,
+    metadata: { blocked_until: blockedUntil }
+  });
+
+  return res.json({ user: data });
+});
+
 adminRouter.patch('/users/:id/roles', requireAuth, requireAnyPermission('users:assign_roles'), async (req: AuthedRequest, res) => {
   const parsed = setRolesSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -385,6 +547,19 @@ adminRouter.get('/roles', requireAuth, requireAnyPermission('roles:manage'), asy
     return res.json({ items: await loadRoleDirectory() });
   } catch (error) {
     return sendError(res, 500, 'Unable to load roles', error instanceof Error ? error.message : 'Unknown error');
+  }
+});
+
+adminRouter.get('/roles/:id', requireAuth, requireAnyPermission('roles:manage'), async (req, res) => {
+  try {
+    const role = (await loadRoleDirectory()).find((item) => item.id === req.params.id);
+    if (!role) {
+      return sendError(res, 404, 'Role not found');
+    }
+
+    return res.json({ role });
+  } catch (error) {
+    return sendError(res, 500, 'Unable to load role', error instanceof Error ? error.message : 'Unknown error');
   }
 });
 
@@ -454,6 +629,44 @@ adminRouter.patch('/roles/:id', requireAuth, requireAnyPermission('roles:manage'
   return res.json({ role: data });
 });
 
+adminRouter.delete('/roles/:id', requireAuth, requireAnyPermission('roles:manage'), async (req: AuthedRequest, res) => {
+  const { data: existing, error: loadError } = await supabaseAdmin
+    .from('roles')
+    .select('*')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (loadError) {
+    return sendError(res, 500, 'Unable to load role', loadError.message);
+  }
+
+  if (!existing) {
+    return sendError(res, 404, 'Role not found');
+  }
+
+  if (existing.is_system) {
+    return sendError(res, 409, 'System roles cannot be deleted');
+  }
+
+  await supabaseAdmin.from('role_permissions').delete().eq('role_id', req.params.id);
+  await supabaseAdmin.from('user_roles').delete().eq('role_id', req.params.id);
+
+  const { error } = await supabaseAdmin.from('roles').delete().eq('id', req.params.id);
+  if (error) {
+    return sendError(res, 500, 'Unable to delete role', error.message);
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'roles.delete',
+    entityType: 'role',
+    entityId: getParamId(req.params.id) ?? undefined,
+    metadata: { key: existing.key }
+  });
+
+  return res.json({ role: existing });
+});
+
 adminRouter.get('/permissions', requireAuth, requireAnyPermission('permissions:manage'), async (_req, res) => {
   const { data, error } = await supabaseAdmin.from('permissions').select('*').order('name', { ascending: true });
   if (error) {
@@ -461,6 +674,24 @@ adminRouter.get('/permissions', requireAuth, requireAnyPermission('permissions:m
   }
 
   return res.json({ items: data ?? [] });
+});
+
+adminRouter.get('/permissions/:id', requireAuth, requireAnyPermission('permissions:manage'), async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('permissions')
+    .select('*')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to load permission', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Permission not found');
+  }
+
+  return res.json({ permission: data });
 });
 
 adminRouter.post('/permissions', requireAuth, requireAnyPermission('permissions:manage'), async (req: AuthedRequest, res) => {
@@ -521,6 +752,38 @@ adminRouter.patch('/permissions/:id', requireAuth, requireAnyPermission('permiss
   return res.json({ permission: data });
 });
 
+adminRouter.delete('/permissions/:id', requireAuth, requireAnyPermission('permissions:manage'), async (req: AuthedRequest, res) => {
+  const { data: existing, error: loadError } = await supabaseAdmin
+    .from('permissions')
+    .select('*')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (loadError) {
+    return sendError(res, 500, 'Unable to load permission', loadError.message);
+  }
+
+  if (!existing) {
+    return sendError(res, 404, 'Permission not found');
+  }
+
+  await supabaseAdmin.from('role_permissions').delete().eq('permission_id', req.params.id);
+  const { error } = await supabaseAdmin.from('permissions').delete().eq('id', req.params.id);
+  if (error) {
+    return sendError(res, 500, 'Unable to delete permission', error.message);
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'permissions.delete',
+    entityType: 'permission',
+    entityId: getParamId(req.params.id) ?? undefined,
+    metadata: { key: existing.key }
+  });
+
+  return res.json({ permission: existing });
+});
+
 adminRouter.put('/roles/:id/permissions', requireAuth, requireAnyPermission('permissions:manage'), async (req: AuthedRequest, res) => {
   const parsed = setPermissionsSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -579,6 +842,24 @@ adminRouter.get('/inventory', requireAuth, requireAnyPermission('inventory:read'
   return res.json({ items: data ?? [] });
 });
 
+adminRouter.get('/inventory/:id', requireAuth, requireAnyPermission('inventory:read', 'inventory:manage'), async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('inventory_items')
+    .select('*, material_copies(id,barcode,copy_code,status,location), materials(id,title,kind)')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to load inventory record', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Inventory record not found');
+  }
+
+  return res.json({ item: data });
+});
+
 adminRouter.get('/acquisitions', requireAuth, requireAnyPermission('reports:view'), async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('acquisition_requests')
@@ -592,6 +873,24 @@ adminRouter.get('/acquisitions', requireAuth, requireAnyPermission('reports:view
   return res.json({ items: data ?? [] });
 });
 
+adminRouter.get('/acquisitions/:id', requireAuth, requireAnyPermission('reports:view'), async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('acquisition_requests')
+    .select('*, profiles(id,full_name)')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to load acquisition request', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Acquisition request not found');
+  }
+
+  return res.json({ request: data });
+});
+
 adminRouter.get('/interlibrary', requireAuth, requireAnyPermission('reports:view'), async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('interlibrary_requests')
@@ -603,6 +902,24 @@ adminRouter.get('/interlibrary', requireAuth, requireAnyPermission('reports:view
   }
 
   return res.json({ items: data ?? [] });
+});
+
+adminRouter.get('/interlibrary/:id', requireAuth, requireAnyPermission('reports:view'), async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('interlibrary_requests')
+    .select('*, profiles(id,full_name)')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to load interlibrary request', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Interlibrary request not found');
+  }
+
+  return res.json({ request: data });
 });
 
 adminRouter.get('/audit', requireAuth, requireAnyPermission('audit:read'), async (_req, res) => {
@@ -620,17 +937,29 @@ adminRouter.get('/audit', requireAuth, requireAnyPermission('audit:read'), async
 });
 
 adminRouter.get('/analytics', requireAuth, requireAnyPermission('reports:view'), async (_req, res) => {
-  const { data, error } = await supabaseAdmin
-    .from('analytics_snapshots')
-    .select('*')
-    .order('snapshot_date', { ascending: false })
-    .limit(12);
+  const [snapshots, activeLoans, overdueLoans, digitalLoans, openFines, borrowedCopies] = await Promise.all([
+    supabaseAdmin.from('analytics_snapshots').select('*').order('snapshot_date', { ascending: false }).limit(12),
+    supabaseAdmin.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabaseAdmin.from('loans').select('id', { count: 'exact', head: true }).eq('status', 'overdue'),
+    supabaseAdmin.from('loans').select('id', { count: 'exact', head: true }).eq('loan_type', 'digital'),
+    supabaseAdmin.from('fines').select('id', { count: 'exact', head: true }).in('status', ['open', 'pending_payment']),
+    supabaseAdmin.from('material_copies').select('id', { count: 'exact', head: true }).eq('status', 'borrowed')
+  ]);
 
-  if (error) {
-    return sendError(res, 500, 'Unable to load analytics', error.message);
+  if (snapshots.error) {
+    return sendError(res, 500, 'Unable to load analytics', snapshots.error.message);
   }
 
-  return res.json({ items: data ?? [] });
+  return res.json({
+    items: snapshots.data ?? [],
+    summary: {
+      active_loans: activeLoans.count ?? 0,
+      overdue_loans: overdueLoans.count ?? 0,
+      digital_loans: digitalLoans.count ?? 0,
+      open_fines: openFines.count ?? 0,
+      borrowed_copies: borrowedCopies.count ?? 0
+    }
+  });
 });
 
 adminRouter.get('/notifications', requireAuth, requireAnyPermission('notifications:manage'), async (_req, res) => {
@@ -645,6 +974,24 @@ adminRouter.get('/notifications', requireAuth, requireAnyPermission('notificatio
   }
 
   return res.json({ items: data ?? [] });
+});
+
+adminRouter.get('/notifications/:id', requireAuth, requireAnyPermission('notifications:manage'), async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('notifications')
+    .select('*, profiles(id,full_name)')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to load notification', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Notification not found');
+  }
+
+  return res.json({ notification: data });
 });
 
 adminRouter.post('/notifications', requireAuth, requireAnyPermission('notifications:manage'), async (req: AuthedRequest, res) => {
@@ -682,6 +1029,200 @@ adminRouter.post('/notifications', requireAuth, requireAnyPermission('notificati
   return res.status(201).json({ notification: data });
 });
 
+adminRouter.patch('/notifications/:id', requireAuth, requireAnyPermission('notifications:manage'), async (req: AuthedRequest, res) => {
+  const parsed = notificationUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 400, 'Invalid notification payload', parsed.error.flatten());
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('notifications')
+    .update({
+      ...parsed.data,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to update notification', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Notification not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'notifications.update',
+    entityType: 'notification',
+    entityId: data.id,
+    metadata: { read_at: data.read_at }
+  });
+
+  return res.json({ notification: data });
+});
+
+adminRouter.delete('/notifications/:id', requireAuth, requireAnyPermission('notifications:manage'), async (req: AuthedRequest, res) => {
+  const now = new Date().toISOString();
+  const { data: existing, error: loadError } = await supabaseAdmin
+    .from('notifications')
+    .select('*')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (loadError) {
+    return sendError(res, 500, 'Unable to load notification', loadError.message);
+  }
+
+  if (!existing) {
+    return sendError(res, 404, 'Notification not found');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('notifications')
+    .update({
+      read_at: existing.read_at ?? now,
+      metadata: {
+        ...(existing.metadata ?? {}),
+        archived: true,
+        archived_at: now
+      },
+      updated_at: now
+    })
+    .eq('id', req.params.id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to archive notification', error.message);
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'notifications.archive',
+    entityType: 'notification',
+    entityId: getParamId(req.params.id) ?? undefined,
+    metadata: { archived_at: now }
+  });
+
+  return res.json({ notification: data });
+});
+
+adminRouter.post('/inventory', requireAuth, requireAnyPermission('inventory:manage'), async (req: AuthedRequest, res) => {
+  const parsed = inventoryPayloadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 400, 'Invalid inventory payload', parsed.error.flatten());
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('inventory_items')
+    .insert(parsed.data)
+    .select('*, material_copies(id,barcode,copy_code,status,location), materials(id,title,kind)')
+    .single();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to create inventory record', error.message);
+  }
+
+  if (parsed.data.copy_id) {
+    const copyUpdate: Record<string, unknown> = {
+      last_audited_at: new Date().toISOString()
+    };
+    if (parsed.data.is_missing) {
+      copyUpdate.status = 'lost';
+    }
+    if (parsed.data.location) {
+      copyUpdate.location = parsed.data.location;
+    }
+    if (parsed.data.notes) {
+      copyUpdate.condition_note = parsed.data.notes;
+    }
+
+    await supabaseAdmin
+      .from('material_copies')
+      .update(copyUpdate)
+      .eq('id', parsed.data.copy_id);
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'inventory.create',
+    entityType: 'inventory_item',
+    entityId: data.id,
+    metadata: { copy_id: parsed.data.copy_id, material_id: parsed.data.material_id, is_missing: parsed.data.is_missing }
+  });
+
+  return res.status(201).json({ item: data });
+});
+
+adminRouter.patch('/inventory/:id', requireAuth, requireAnyPermission('inventory:manage'), async (req: AuthedRequest, res) => {
+  const parsed = inventoryPayloadSchema.partial().safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 400, 'Invalid inventory payload', parsed.error.flatten());
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('inventory_items')
+    .update({
+      ...parsed.data,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id)
+    .select('*, material_copies(id,barcode,copy_code,status,location), materials(id,title,kind)')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to update inventory record', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Inventory record not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'inventory.update',
+    entityType: 'inventory_item',
+    entityId: data.id,
+    metadata: { copy_id: data.copy_id, material_id: data.material_id, is_missing: data.is_missing }
+  });
+
+  return res.json({ item: data });
+});
+
+adminRouter.delete('/inventory/:id', requireAuth, requireAnyPermission('inventory:manage'), async (req: AuthedRequest, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('inventory_items')
+    .update({
+      is_missing: true,
+      notes: 'Archived through DELETE /inventory/:id',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id)
+    .select('*, material_copies(id,barcode,copy_code,status,location), materials(id,title,kind)')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to archive inventory record', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Inventory record not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'inventory.archive',
+    entityType: 'inventory_item',
+    entityId: data.id,
+    metadata: { is_missing: data.is_missing }
+  });
+
+  return res.json({ item: data });
+});
+
 adminRouter.post('/acquisitions', requireAuth, requireAnyPermission('reports:view'), async (req: AuthedRequest, res) => {
   const parsed = acquisitionPayloadSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -717,6 +1258,74 @@ adminRouter.post('/acquisitions', requireAuth, requireAnyPermission('reports:vie
   return res.status(201).json({ request: data });
 });
 
+adminRouter.patch('/acquisitions/:id', requireAuth, requireAnyPermission('reports:view'), async (req: AuthedRequest, res) => {
+  const parsed = acquisitionUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 400, 'Invalid acquisition payload', parsed.error.flatten());
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('acquisition_requests')
+    .update({
+      ...parsed.data,
+      approved_at: parsed.data.status === 'approved' ? now : undefined,
+      received_at: parsed.data.status === 'received' ? now : undefined,
+      updated_at: now
+    })
+    .eq('id', req.params.id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to update acquisition request', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Acquisition request not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'acquisitions.update',
+    entityType: 'acquisition_request',
+    entityId: data.id,
+    metadata: { status: data.status, title: data.title }
+  });
+
+  return res.json({ request: data });
+});
+
+adminRouter.delete('/acquisitions/:id', requireAuth, requireAnyPermission('reports:view'), async (req: AuthedRequest, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('acquisition_requests')
+    .update({
+      status: 'cancelled',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to archive acquisition request', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Acquisition request not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'acquisitions.archive',
+    entityType: 'acquisition_request',
+    entityId: data.id,
+    metadata: { status: data.status, title: data.title }
+  });
+
+  return res.json({ request: data });
+});
+
 adminRouter.post('/interlibrary', requireAuth, requireAnyPermission('reports:view'), async (req: AuthedRequest, res) => {
   const parsed = interlibraryPayloadSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -748,4 +1357,72 @@ adminRouter.post('/interlibrary', requireAuth, requireAnyPermission('reports:vie
   });
 
   return res.status(201).json({ request: data });
+});
+
+adminRouter.patch('/interlibrary/:id', requireAuth, requireAnyPermission('reports:view'), async (req: AuthedRequest, res) => {
+  const parsed = interlibraryUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 400, 'Invalid interlibrary payload', parsed.error.flatten());
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('interlibrary_requests')
+    .update({
+      ...parsed.data,
+      fulfilled_at: parsed.data.status === 'received' ? now : undefined,
+      returned_at: parsed.data.status === 'returned' ? now : undefined,
+      updated_at: now
+    })
+    .eq('id', req.params.id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to update interlibrary request', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Interlibrary request not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'interlibrary.update',
+    entityType: 'interlibrary_request',
+    entityId: data.id,
+    metadata: { status: data.status, material_title: data.material_title }
+  });
+
+  return res.json({ request: data });
+});
+
+adminRouter.delete('/interlibrary/:id', requireAuth, requireAnyPermission('reports:view'), async (req: AuthedRequest, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('interlibrary_requests')
+    .update({
+      status: 'cancelled',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    return sendError(res, 500, 'Unable to archive interlibrary request', error.message);
+  }
+
+  if (!data) {
+    return sendError(res, 404, 'Interlibrary request not found');
+  }
+
+  await logAuditEvent({
+    actorId: req.auth!.userId,
+    action: 'interlibrary.archive',
+    entityType: 'interlibrary_request',
+    entityId: data.id,
+    metadata: { status: data.status, material_title: data.material_title }
+  });
+
+  return res.json({ request: data });
 });

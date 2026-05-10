@@ -1,6 +1,8 @@
 # Saidy Library
 
-Sistema web de biblioteca híbrida con:
+Sistema web de biblioteca hibrida para administrar catalogo, copias, prestamos, reservas, multas, inventario, adquisiciones, notificaciones, auditoria y analitica operativa.
+
+Stack principal:
 
 - React + TypeScript en el frontend
 - Node + Express + TypeScript como BFF
@@ -11,6 +13,7 @@ Sistema web de biblioteca híbrida con:
 - `web/`: portal web
 - `server/`: API de negocio
 - `supabase/migrations/`: esquema y políticas
+- `docs/`: analisis, arquitectura y checklist de entrega
 
 ## Inicio
 
@@ -26,4 +29,11 @@ npm install
 
 ```bash
 npm run dev
+```
+
+## Verificacion
+
+```bash
+npm run typecheck
+npm run build
 ```

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase.js';
-import { apiFetch } from './lib/api.js';
+import { ApiError, apiFetch } from './lib/api.js';
 import { AdminRbacPanel } from './components/AdminRbacPanel.js';
+import { LibraryOperationsPanel } from './components/LibraryOperationsPanel.js';
 
 type Section = 'catalog' | 'circulation' | 'digital' | 'admin';
 
@@ -108,6 +109,7 @@ type AdminDashboard = {
   loans: number;
   reservations: number;
   fines: number;
+  inventory: number;
   acquisitions: number;
   interlibrary: number;
   notifications: number;
@@ -190,6 +192,7 @@ function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [selectedSection, setSelectedSection] = useState<Section>('catalog');
   const [loadingData, setLoadingData] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [portalData, setPortalData] = useState<PortalData>(emptyData);
   const [search, setSearch] = useState('');
@@ -199,7 +202,6 @@ function App() {
     email: '',
     password: '',
     fullName: '',
-    memberType: 'student' as Profile['member_type'],
     institution: ''
   });
 
@@ -226,37 +228,63 @@ function App() {
     }
 
     let active = true;
+    const handleUnauthorized = async (error: unknown) => {
+      if (error instanceof ApiError && error.status === 401) {
+        await supabase.auth.signOut();
+        if (active) {
+          setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        }
+        return true;
+      }
+
+      return false;
+    };
+
     const load = async () => {
       setLoadingData(true);
       setError(null);
       try {
         const token = session.access_token;
-        const [me, overview, materials, loans, reservations, fines, assets, dashboard] = await Promise.all([
-          apiFetch<{ profile: Profile }>('/api/auth/me', token),
+        const me = await apiFetch<{ profile: Profile }>('/api/auth/me', token);
+        const [overview, materials, loans, reservations, fines, assets, dashboard] = await Promise.allSettled([
           apiFetch<Overview>('/api/catalog/overview', token),
           apiFetch<{ items: Material[] }>('/api/catalog/materials?page=1&limit=12', token),
           apiFetch<{ items: Loan[] }>('/api/circulation/loans', token),
           apiFetch<{ items: Reservation[] }>('/api/circulation/reservations', token),
           apiFetch<{ items: Fine[] }>('/api/circulation/fines', token),
           apiFetch<{ items: DigitalAsset[] }>('/api/digital/assets', token),
-          apiFetch<AdminDashboard>('/api/admin/dashboard', token).catch(() => null)
+          apiFetch<AdminDashboard>('/api/admin/dashboard', token)
         ]);
 
         if (!active) return;
 
         setPortalData({
           profile: me.profile,
-          overview,
-          materials: materials.items,
-          loans: loans.items,
-          reservations: reservations.items,
-          fines: fines.items,
-          digitalAssets: assets.items,
-          dashboard
+          overview: overview.status === 'fulfilled' ? overview.value : null,
+          materials: materials.status === 'fulfilled' ? materials.value.items : [],
+          loans: loans.status === 'fulfilled' ? loans.value.items : [],
+          reservations: reservations.status === 'fulfilled' ? reservations.value.items : [],
+          fines: fines.status === 'fulfilled' ? fines.value.items : [],
+          digitalAssets: assets.status === 'fulfilled' ? assets.value.items : [],
+          dashboard: dashboard.status === 'fulfilled' ? dashboard.value : null
         });
-        setSelectedMaterialId(materials.items[0]?.id ?? null);
+        setSelectedMaterialId(materials.status === 'fulfilled' ? materials.value.items[0]?.id ?? null : null);
+
+        const firstFailure =
+          [overview, materials, loans, reservations, fines, assets, dashboard].find(
+            (result) => result.status === 'rejected'
+          ) ?? null;
+        if (firstFailure?.status === 'rejected') {
+          if (await handleUnauthorized(firstFailure.reason)) return;
+          setError(
+            firstFailure.reason instanceof Error
+              ? firstFailure.reason.message
+              : 'Algunos módulos no se pudieron cargar'
+          );
+        }
       } catch (loadError) {
         if (!active) return;
+        if (await handleUnauthorized(loadError)) return;
         setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el portal');
       } finally {
         if (active) {
@@ -270,7 +298,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [session, refreshTick]);
 
   useEffect(() => {
     if (!session || !selectedMaterialId) {
@@ -346,7 +374,7 @@ function App() {
       options: {
         data: {
           full_name: authForm.fullName,
-          member_type: authForm.memberType,
+          member_type: 'student',
           institution: authForm.institution
         }
       }
@@ -364,6 +392,15 @@ function App() {
     await supabase.auth.signOut();
   };
 
+  const handleRefreshProfile = () => {
+    setRefreshTick((current) => current + 1);
+  };
+
+  const handleUnauthorized = async () => {
+    await supabase.auth.signOut();
+    setError('Tu sesión expiró. Inicia sesión nuevamente.');
+  };
+
   const handleReserve = async (materialId: string) => {
     if (!session) return;
     setError(null);
@@ -376,7 +413,63 @@ function App() {
       const reservations = await apiFetch<{ items: Reservation[] }>('/api/circulation/reservations', session.access_token);
       setPortalData((current) => ({ ...current, reservations: reservations.items }));
     } catch (reserveError) {
+      if (reserveError instanceof ApiError && reserveError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
       setError(reserveError instanceof Error ? reserveError.message : 'No se pudo reservar el material');
+    }
+  };
+
+  const handleLoanAction = async (loanId: string, action: 'renew' | 'return') => {
+    if (!session) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/api/circulation/loans/${loanId}/${action}`, session.access_token, { method: 'POST' });
+      setRefreshTick((current) => current + 1);
+    } catch (loanError) {
+      if (loanError instanceof ApiError && loanError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
+      setError(loanError instanceof Error ? loanError.message : 'No se pudo actualizar el préstamo');
+    }
+  };
+
+  const handleCancelReservation = async (reservationId: string) => {
+    if (!session) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/api/circulation/reservations/${reservationId}/cancel`, session.access_token, { method: 'POST' });
+      setRefreshTick((current) => current + 1);
+    } catch (reservationError) {
+      if (reservationError instanceof ApiError && reservationError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
+      setError(reservationError instanceof Error ? reservationError.message : 'No se pudo cancelar la reserva');
+    }
+  };
+
+  const handlePayFine = async (fineId: string) => {
+    if (!session) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/api/circulation/fines/${fineId}/pay`, session.access_token, { method: 'POST' });
+      setRefreshTick((current) => current + 1);
+    } catch (fineError) {
+      if (fineError instanceof ApiError && fineError.status === 401) {
+        await supabase.auth.signOut();
+        setError('Tu sesión expiró. Inicia sesión nuevamente.');
+        return;
+      }
+      setError(fineError instanceof Error ? fineError.message : 'No se pudo actualizar la multa');
     }
   };
 
@@ -437,6 +530,7 @@ function App() {
                 Correo
                 <input
                   type="email"
+                  autoComplete="email"
                   value={authForm.email}
                   onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
                   required
@@ -446,6 +540,7 @@ function App() {
                 Contraseña
                 <input
                   type="password"
+                  autoComplete="current-password"
                   value={authForm.password}
                   onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
                   required
@@ -459,6 +554,7 @@ function App() {
                 Nombre completo
                 <input
                   type="text"
+                  autoComplete="name"
                   value={authForm.fullName}
                   onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))}
                   required
@@ -468,6 +564,7 @@ function App() {
                 Correo
                 <input
                   type="email"
+                  autoComplete="email"
                   value={authForm.email}
                   onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))}
                   required
@@ -478,30 +575,17 @@ function App() {
                 <input
                   type="password"
                   minLength={6}
+                  autoComplete="new-password"
                   value={authForm.password}
                   onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))}
                   required
                 />
               </label>
               <label>
-                Tipo de usuario
-                <select
-                  value={authForm.memberType}
-                  onChange={(event) =>
-                    setAuthForm((current) => ({ ...current, memberType: event.target.value as Profile['member_type'] }))
-                  }
-                >
-                  <option value="student">Estudiante</option>
-                  <option value="teacher">Docente</option>
-                  <option value="researcher">Investigador</option>
-                  <option value="public">Público</option>
-                  <option value="staff">Personal</option>
-                </select>
-              </label>
-              <label>
                 Institución
                 <input
                   type="text"
+                  autoComplete="organization"
                   value={authForm.institution}
                   onChange={(event) => setAuthForm((current) => ({ ...current, institution: event.target.value }))}
                 />
@@ -517,7 +601,14 @@ function App() {
   }
 
   const profile = portalData.profile;
-  const isStaff = profile?.permissions.some((permission) => permission.key === 'dashboard:view') ?? false;
+  const activeEmail = session?.user.email || profile?.email || 'N/A';
+  const activeUserId = session?.user.id || profile?.id || 'N/A';
+  const isAdmin = profile?.roles.some((role) => role.key === 'ADMIN') ?? false;
+  const isStaff =
+    isAdmin ||
+    profile?.roles.some((role) => role.key === 'BIBLIOTECARIO') ||
+    profile?.permissions.some((permission) => permission.key === 'dashboard:view') ||
+    false;
   const roleSummary = profile?.roles.map((role) => roleLabel[role.key]).join(' · ') || 'Miembro';
   const permissionSummary = profile?.permissions.length ?? 0;
   const summary = toSummary(filteredMaterials);
@@ -569,6 +660,9 @@ function App() {
             <button type="button" onClick={() => setSelectedSection('catalog')}>Ir al catálogo</button>
             <button type="button" className="secondary" onClick={() => setSelectedSection('circulation')}>
               Ver circulación
+            </button>
+            <button type="button" className="secondary" onClick={handleRefreshProfile}>
+              Recargar perfil
             </button>
           </div>
         </header>
@@ -718,6 +812,14 @@ function App() {
                     <span>
                       {loan.status} · vence {formatDate(loan.due_at)}
                     </span>
+                    <div className="badge-row">
+                      <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'renew')}>
+                        Renovar
+                      </button>
+                      <button type="button" className="badge" onClick={() => handleLoanAction(loan.id, 'return')}>
+                        Devolver
+                      </button>
+                    </div>
                   </article>
                 ))}
                 {portalData.loans.length === 0 ? <div className="empty-state">No hay préstamos registrados.</div> : null}
@@ -739,6 +841,9 @@ function App() {
                     <span>
                       {reservation.status} · posición {reservation.queue_position}
                     </span>
+                    <button type="button" className="badge" onClick={() => handleCancelReservation(reservation.id)}>
+                      Cancelar
+                    </button>
                   </article>
                 ))}
                 {portalData.reservations.length === 0 ? <div className="empty-state">No hay reservas activas.</div> : null}
@@ -762,6 +867,11 @@ function App() {
                     <span>
                       {fine.status} · {fine.reason || 'Sin detalle'} · emitida {formatDate(fine.issued_at)}
                     </span>
+                    {isStaff ? (
+                      <button type="button" className="badge" onClick={() => handlePayFine(fine.id)}>
+                        Marcar pagada
+                      </button>
+                    ) : null}
                   </article>
                 ))}
                 {portalData.fines.length === 0 ? <div className="empty-state">No hay multas registradas.</div> : null}
@@ -813,7 +923,7 @@ function App() {
                   <article className="metric-card"><span>Materiales</span><strong>{portalData.dashboard.materials}</strong></article>
                   <article className="metric-card"><span>Reservas</span><strong>{portalData.dashboard.reservations}</strong></article>
                   <article className="metric-card"><span>Multas</span><strong>{portalData.dashboard.fines}</strong></article>
-                  <article className="metric-card"><span>Inventario</span><strong>{portalData.dashboard.acquisitions}</strong></article>
+                  <article className="metric-card"><span>Inventario</span><strong>{portalData.dashboard.inventory}</strong></article>
                 </div>
               ) : (
                 <div className="empty-state">Solo bibliotecarios y administradores pueden ver este módulo.</div>
@@ -838,7 +948,41 @@ function App() {
               ) : null}
             </div>
 
-            <AdminRbacPanel token={session.access_token} permissions={profile?.permissions.map((permission) => permission.key) ?? []} />
+            <div className="panel panel--wide">
+              <div className="panel__header">
+                <div>
+                  <span className="panel__eyebrow">Sesión activa</span>
+                  <h2>Usuario autenticado</h2>
+                </div>
+              </div>
+
+              <dl className="profile-list">
+                <div><dt>Email de sesión</dt><dd>{activeEmail}</dd></div>
+                <div><dt>ID de sesión</dt><dd>{activeUserId}</dd></div>
+                <div><dt>Email de perfil</dt><dd>{profile?.email || 'N/A'}</dd></div>
+                <div><dt>Roles detectados</dt><dd>{profile?.roles.length ? profile.roles.map((role) => roleLabel[role.key]).join(', ') : 'Sin rol cargado'}</dd></div>
+                <div><dt>Permisos detectados</dt><dd>{profile?.permissions.length ?? 0}</dd></div>
+                <div><dt>Estado</dt><dd>{isAdmin ? 'ADMIN' : 'Usuario normal'}</dd></div>
+              </dl>
+
+              {profile && activeEmail !== profile.email ? (
+                <div className="page-banner">La sesión activa y el perfil cargado no coinciden. Recarga o vuelve a iniciar sesión.</div>
+              ) : null}
+            </div>
+
+            <AdminRbacPanel
+              token={session.access_token}
+              roleKeys={profile?.roles.map((role) => role.key) ?? []}
+              permissions={profile?.permissions.map((permission) => permission.key) ?? []}
+            />
+
+            <LibraryOperationsPanel
+              token={session.access_token}
+              roleKeys={profile?.roles.map((role) => role.key) ?? []}
+              permissions={profile?.permissions.map((permission) => permission.key) ?? []}
+              onChanged={handleRefreshProfile}
+              onUnauthorized={handleUnauthorized}
+            />
           </section>
         ) : null}
       </main>

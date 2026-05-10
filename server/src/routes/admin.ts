@@ -81,6 +81,27 @@ const setPermissionsSchema = z.object({
   permission_keys: z.array(z.string().trim().min(2).max(120)).min(1).max(100)
 });
 
+type SupabaseErrorLike = {
+  code?: string;
+  message: string;
+};
+
+export function getRoleCreateErrorResponse(error: SupabaseErrorLike) {
+  if (error.code === '23505') {
+    return {
+      status: 409,
+      message: 'Role key already exists',
+      details: error.message
+    };
+  }
+
+  return {
+    status: 500,
+    message: 'Unable to create role',
+    details: error.message
+  };
+}
+
 const notificationPayloadSchema = z.object({
   user_id: z.string().uuid().nullable().optional(),
   type: z.string().trim().min(2).max(80).optional(),
@@ -579,7 +600,8 @@ adminRouter.post('/roles', requireAuth, requireAnyPermission('roles:manage'), as
     .single();
 
   if (error) {
-    return sendError(res, 500, 'Unable to create role', error.message);
+    const response = getRoleCreateErrorResponse(error);
+    return sendError(res, response.status, response.message, response.details);
   }
 
   await logAuditEvent({

@@ -576,7 +576,7 @@ export function AdminRbacPanel({ token, roleKeys, permissions }: AdminRbacPanelP
                         type="text"
                         value={roleForm.key}
                         onChange={(event) => setRoleForm((current) => ({ ...current, key: event.target.value.toUpperCase() }))}
-                        placeholder="BIBLIOTECARIO"
+                        placeholder="AUXILIAR_BIBLIOTECA"
                         required
                       />
                     </label>

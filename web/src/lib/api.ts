@@ -31,30 +31,6 @@ function flattenDetails(details: unknown) {
   return messages.length > 0 ? messages.join(' | ') : null;
 }
 
-export class ApiError extends Error {
-  status: number;
-  details: unknown;
-
-  constructor(message: string, status: number, details?: unknown) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.details = details;
-  }
-}
-
-function flattenDetails(details: unknown) {
-  if (!details || typeof details !== 'object') return null;
-  const fieldErrors = 'fieldErrors' in details ? (details as { fieldErrors?: Record<string, string[]> }).fieldErrors : null;
-  if (!fieldErrors) return null;
-
-  const messages = Object.entries(fieldErrors)
-    .flatMap(([field, errors]) => errors.map((error) => `${field}: ${error}`))
-    .slice(0, 4);
-
-  return messages.length > 0 ? messages.join(' | ') : null;
-}
-
 export async function apiFetch<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,

@@ -10,38 +10,9 @@
     <div id="nav-slot"></div>
 
     <main class="page-wrap auth-page">
-      <div class="auth-layout">
-        <aside class="auth-aside">
-          <p class="auth-aside__kicker">Blog Microservicios</p>
-          <h1>Bienvenido de vuelta</h1>
-          <p>Accede a tu cuenta para leer posts, comentar y gestionar tu perfil.</p>
-
-          <ul class="auth-points">
-            <li class="auth-point">
-              <span class="auth-point__icon">UI</span>
-              <div>
-                <strong>Interfaz limpia</strong>
-                <span>Diseño claro y consistente en todas las pantallas.</span>
-              </div>
-            </li>
-            <li class="auth-point">
-              <span class="auth-point__icon">OK</span>
-              <div>
-                <strong>Acceso rápido</strong>
-                <span>Ingresa en segundos con tu correo y contraseña.</span>
-              </div>
-            </li>
-            <li class="auth-point">
-              <span class="auth-point__icon">ADM</span>
-              <div>
-                <strong>Control por roles</strong>
-                <span>Administradores asignan permisos cuando sea necesario.</span>
-              </div>
-            </li>
-          </ul>
-        </aside>
-
+      <div class="auth-layout auth-layout--poster">
         <section class="panel auth-card">
+          <a class="back-link" href="/posts.html">&larr; Home</a>
           <h2>Iniciar sesión</h2>
           <p class="muted">Usa tu correo y contraseña para entrar.</p>
 
@@ -68,12 +39,16 @@
           </form>
 
           <div id="form-message" class="hidden"></div>
-
-          <div class="auth-footer muted">
-            <span>¿No tienes cuenta?</span>
-            <a href="/register.html" class="btn btn-ghost">Regístrate</a>
-          </div>
         </section>
+
+        <aside class="auth-aside auth-aside--splash">
+          <div class="auth-splash">
+            <p class="auth-splash__kicker">Blog Microservicios</p>
+            <h2>Get started</h2>
+            <p>¿No tienes una cuenta todavía?</p>
+            <a href="/register.html" class="btn btn-invert">Crear cuenta</a>
+          </div>
+        </aside>
       </div>
     </main>
 

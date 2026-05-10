@@ -10,41 +10,9 @@
     <div id="nav-slot"></div>
 
     <main class="page-wrap auth-page">
-      <div class="auth-layout">
-        <aside class="auth-aside">
-          <p class="auth-aside__kicker">Blog Microservicios</p>
-          <h1>Crea tu cuenta</h1>
-          <p>
-            Tu cuenta se registra como <strong>Estudiante</strong>. Si es la primera cuenta del sistema, se crea como <strong>Administrador</strong>
-            para inicializar el panel.
-          </p>
-
-          <ul class="auth-points">
-            <li class="auth-point">
-              <span class="auth-point__icon">RB</span>
-              <div>
-                <strong>Roles controlados</strong>
-                <span>El rol admin crea y asigna los demás roles.</span>
-              </div>
-            </li>
-            <li class="auth-point">
-              <span class="auth-point__icon">PW</span>
-              <div>
-                <strong>Contraseña segura</strong>
-                <span>Usa mínimo 6 caracteres y no la compartas.</span>
-              </div>
-            </li>
-            <li class="auth-point">
-              <span class="auth-point__icon">PR</span>
-              <div>
-                <strong>Perfil editable</strong>
-                <span>Actualiza tu bio y avatar cuando quieras.</span>
-              </div>
-            </li>
-          </ul>
-        </aside>
-
+      <div class="auth-layout auth-layout--poster">
         <section class="panel auth-card">
+          <a class="back-link" href="/posts.html">&larr; Home</a>
           <h2>Crear cuenta</h2>
           <p class="muted">Completa tus datos para registrarte.</p>
 
@@ -79,12 +47,16 @@
           </form>
 
           <div id="form-message" class="hidden"></div>
-
-          <div class="auth-footer muted">
-            <span>¿Ya tienes cuenta?</span>
-            <a href="/login.html" class="btn btn-ghost">Inicia sesión</a>
-          </div>
         </section>
+
+        <aside class="auth-aside auth-aside--splash">
+          <div class="auth-splash">
+            <p class="auth-splash__kicker">Blog Microservicios</p>
+            <h2>¡Bienvenido!</h2>
+            <p>¿Ya tienes una cuenta?</p>
+            <a href="/login.html" class="btn btn-invert">Iniciar sesión</a>
+          </div>
+        </aside>
       </div>
     </main>
 
